@@ -4,7 +4,8 @@ Usage: python tools/build_docs.py [ref]   (default: the latest release tag)
 
 Downloads the source tarball of `ref` from GitHub, renders each page listed in NAV to
 docs/<slug>/index.html with the site's header, a sidebar, an "On this page" list and
-prev/next links, and writes docs/search.json for the search box. Links to other rendered
+prev/next links, writes docs/search.json for the search box and sitemap.xml (the landing
+page and every docs page) at the site root. Links to other rendered
 pages become site links; links to anything else in the repository go to GitHub at `ref`.
 """
 
@@ -26,6 +27,7 @@ from pygments.lexers import get_lexer_by_name
 from pygments.util import ClassNotFound
 
 REPO = "sourcegull/sourcegull"
+SITE_URL = "https://sourcegull.org"
 SITE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(SITE_ROOT, "docs")
 
@@ -265,6 +267,17 @@ def page_html(ref, src, slug, label, title, body, toc, prev, nxt):
 """
 
 
+def write_sitemap():
+    urls = ["/"] + [url_for(slug) for _, slug, _ in PAGES]
+    entries = "".join(f"  <url><loc>{SITE_URL}{u}</loc></url>\n" for u in urls)
+    with open(os.path.join(SITE_ROOT, "sitemap.xml"), "w") as f:
+        f.write(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            f"{entries}</urlset>\n"
+        )
+
+
 def main():
     ref = sys.argv[1] if len(sys.argv) > 1 else latest_tag()
     files, dirs = fetch(ref)
@@ -299,6 +312,7 @@ def main():
             f.write(files[a])
     with open(os.path.join(OUT, "search.json"), "w") as f:
         json.dump(index, f, ensure_ascii=False, separators=(",", ":"))
+    write_sitemap()
     print(f"{len(PAGES)} pages from {REPO}@{ref}, {len(index)} search entries")
 
 
