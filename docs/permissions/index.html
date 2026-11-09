@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Permissions and sign-in · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/" aria-current="page">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="permissions-and-sign-in">Permissions and sign-in</h1>
+<h2 id="sign-in-providers"><a class="anchor" href="#sign-in-providers" aria-hidden="true">#</a>Sign-in providers</h2>
+<p>Sign-in methods are listed in <code>auth.providers</code> in the site configuration (Site admin → Site
+configuration). Several can be active at once; the sign-in page shows one button per external
+provider. The first account created on a new instance becomes the site admin, unless the
+<a href="/docs/configuration/#resources-file">resources file</a> declares <code>siteAdmins</code>; then only users with those
+verified emails are site admins.</p>
+<p>Each provider has its own <code>allowSignup</code>: it decides whether a first sign-in with that provider
+creates an account. Password sign-up can stay closed while GitLab sign-in creates accounts, or
+the other way round.</p>
+<h3 id="built-in-accounts"><a class="anchor" href="#built-in-accounts" aria-hidden="true">#</a>Built-in accounts</h3>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;builtin&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;allowSignup&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>Usernames and passwords stored in Sourcegull. With <code>allowSignup: true</code> the sign-in page links to
+a sign-up form. With <code>allowSignup: false</code> (the default) visitors cannot create accounts
+themselves: site admins <a href="#creating-users">create them</a>, or visitors
+<a href="#access-requests">request access</a>. Related settings:</p>
+<ul>
+<li>
+<p><code>auth.passwordPolicy</code>: minimum length (default 12), and optionally digits, mixed case and
+special characters.</p>
+</li>
+<li>
+<p><code>auth.lockout</code>: lock an account after <code>failedAttemptThreshold</code> failed sign-ins (default 5)
+within <code>consecutivePeriod</code> seconds of the first failure (default an hour), for <code>lockoutPeriod</code>
+seconds (default 30 minutes). Failures and locks count per account and client address (IPv6
+addresses per /64 network): failures from one address lock the account only for that
+address, so a stranger cannot lock out its owner. A failure after the period starts a new
+count at 1; a successful sign-in clears the address's count. A locked account, an unknown
+account and a wrong password get the same answer.</p>
+</li>
+<li>
+<p><code>auth.rateLimits</code>: request limits on the endpoints anyone can call, shared by every process
+(counted in Postgres). Over a limit the endpoint answers <code>429</code> with <code>Retry-After</code> until the
+window ends. Each limit is <code>{&quot;requests&quot;: n, &quot;period&quot;: seconds}</code>; <code>&quot;enabled&quot;: false</code> turns
+them all off.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Counts</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>signInPerAddress</code></td>
+<td>password sign-in attempts per client address</td>
+<td>50 per 5 min</td>
+</tr>
+<tr>
+<td><code>failedSignInsPerAccount</code></td>
+<td>failed sign-ins per username or email, from any address</td>
+<td>100 per hour</td>
+</tr>
+<tr>
+<td><code>passwordResetPerAddress</code></td>
+<td>password reset requests per client address</td>
+<td>10 per hour</td>
+</tr>
+<tr>
+<td><code>passwordResetPerEmail</code></td>
+<td>password reset requests per email address</td>
+<td>3 per hour</td>
+</tr>
+<tr>
+<td><code>accessRequestPerAddress</code></td>
+<td><a href="#access-requests">access requests</a> per client address</td>
+<td>10 per hour</td>
+</tr>
+<tr>
+<td><code>accessRequestPerEmail</code></td>
+<td>access requests per email address</td>
+<td>3 per hour</td>
+</tr>
+<tr>
+<td><code>oauthAuthorizePerAddress</code></td>
+<td><code>/.oauth/authorize</code> requests per client address</td>
+<td>300 per 5 min</td>
+</tr>
+<tr>
+<td><code>failedWebhooksPerAddress</code></td>
+<td>rejected incoming code host webhook deliveries (4xx) per client address</td>
+<td>100 per 5 min</td>
+</tr>
+</tbody>
+</table></div>
+<p>Per-account and per-email limits count the name as typed (ignoring case), whether or not it
+exists. The client address is the TCP peer, or, when the peer is listed in
+<code>auth.allowedIpAddress.trustedClientIpAddress</code>, the address it reports in
+<code>clientIpRequestHeader</code> (default <code>X-Forwarded-For</code>), also while the allowlist itself is off.
+Behind a reverse proxy, list it there; otherwise every request counts against the proxy's
+address.</p>
+</li>
+<li>
+<p><code>auth.sessionExpiry</code>: session lifetime (default <code>30d</code>).</p>
+</li>
+<li>
+<p>Password reset and email verification links are emailed when <code>email.smtp</code> is configured.
+Without it, the forgot-password page and resending a verification link say that email is not
+set up, and site admins create reset links under Site admin &gt; Users &gt; Reset password. A reset
+request is answered at once, the same for known and unknown addresses; the lookup and the email
+happen in the background.</p>
+</li>
+<li>
+<p>Completing a password reset ends the user's sessions, deletes their access tokens and revokes
+the OAuth grants of their connected apps.</p>
+</li>
+</ul>
+<h4 id="locked-out-admins">Locked-out admins</h4>
+<p>When no site admin can sign in and email is not configured, run this where the server's
+environment is set, for example in a web container (it reads <code>SOURCEGULL_DATABASE_URL</code>, and
+<code>SOURCEGULL_SITE_CONFIG_FILE</code> and <code>SOURCEGULL_EXTERNAL_URL</code> when set):</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="c1"># Kubernetes</span>
+kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>deploy/&lt;release&gt;-web<span class="w"> </span>--<span class="w"> </span>sourcegull<span class="w"> </span>users<span class="w"> </span>reset-password<span class="w"> </span>&lt;username&gt;
+<span class="c1"># Docker Compose</span>
+docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>web<span class="w"> </span>sourcegull<span class="w"> </span>users<span class="w"> </span>reset-password<span class="w"> </span>&lt;username&gt;
+</code></pre></div>
+<p>It prints a single-use reset link that expires after <code>auth.passwordResetLinkExpiry</code>, replaces any
+earlier unused link for the user, and clears the user's sign-in lockouts. Open the link in a
+browser and set a new password.</p>
+<h3 id="gitlab-oauth"><a class="anchor" href="#gitlab-oauth" aria-hidden="true">#</a>GitLab OAuth</h3>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;gitlab&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://gitlab.example.com/&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;clientID&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&lt;application id&gt;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;clientSecret&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&lt;secret&gt;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;allowSignup&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;allowGroups&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;acme&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;acme/platform&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;displayName&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;GitLab&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+<ol>
+<li>Set <code>externalURL</code> first; the callback URL is built from it.</li>
+<li>In GitLab, create an OAuth application (user, group or, on self-managed GitLab,
+instance-wide under Admin → Applications) with the redirect URI
+<code>&lt;externalURL&gt;/.auth/gitlab/callback</code>, <strong>Confidential</strong> checked, and the scopes <code>read_user</code>
+and <code>read_api</code>.</li>
+<li>Copy its Application ID and Secret into <code>clientID</code> and <code>clientSecret</code>.</li>
+</ol>
+<p><code>allowSignup</code> creates a Sourcegull account on first sign-in; without it, GitLab users can only sign
+in to an existing account with the same verified email (see <a href="#linking-by-email">linking by
+email</a>). <code>allowGroups</code> admits only members of those groups. Signing in with
+GitLab also lets Sourcegull apply the user's
+<a href="#repository-permissions">GitLab repository permissions</a>.</p>
+<h4 id="linking-by-email">Linking by email</h4>
+<p>The first sign-in through a code host or OpenID Connect provider links the account to the
+existing Sourcegull user with the same email, when the provider says the email is verified. Site
+admins are linked the same way. Set <code>linkByEmail: false</code> on a provider to turn this off: a first
+sign-in whose verified email belongs to an existing user then fails with &quot;A user with the email
+address of this account already exists&quot; (a new user cannot take an email another user has
+verified), and the user signs in another way.</p>
+<p>Linking trusts the provider's email verification. On a self-managed code host that does not
+require email confirmation, anyone who can register there can claim any address, and so sign
+in as the Sourcegull user with that address, a site admin included. Set <code>linkByEmail: false</code> for
+such a host.</p>
+<h3 id="github-oauth"><a class="anchor" href="#github-oauth" aria-hidden="true">#</a>GitHub OAuth</h3>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;github&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;clientID&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&lt;client id&gt;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;clientSecret&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&lt;client secret&gt;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;allowSignup&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;allowOrgs&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;acme&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;displayName&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;GitHub&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+<ol>
+<li>Set <code>externalURL</code> first; the callback URL is built from it.</li>
+<li>In GitHub, register an OAuth app (Settings → Developer settings → OAuth Apps, for your
+account or, preferably, an organization) with the authorization callback URL
+<code>&lt;externalURL&gt;/.auth/github/callback</code>. Use an OAuth app, not a GitHub App.</li>
+<li>Copy its Client ID and a generated client secret into <code>clientID</code> and <code>clientSecret</code>. For
+GitHub Enterprise Server, set <code>url</code> to the instance (<code>https://github.example.com/</code>).</li>
+</ol>
+<p>Sourcegull requests the scopes <code>read:user</code> and <code>user:email</code>, plus <code>read:org</code> when <code>allowOrgs</code> is
+set and <code>repo</code> when a GitHub connection for the same URL has an <code>authorization</code> block
+(<a href="#github-repository-permissions">repository permissions</a>). The account's email is the primary email when GitHub has verified it. <code>allowSignup</code> and
+the matching of existing accounts work as for GitLab; <code>allowOrgs</code> admits only members of those
+organizations (logins, any case). An organization that restricts OAuth app access must approve
+the app, or its members are not seen as members.</p>
+<h3 id="gitea-oauth"><a class="anchor" href="#gitea-oauth" aria-hidden="true">#</a>Gitea OAuth</h3>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;gitea&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://gitea.example.com/&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;clientID&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&lt;client id&gt;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;clientSecret&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&lt;client secret&gt;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;allowSignup&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;allowOrgs&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;acme&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;displayName&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;Gitea&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+<ol>
+<li>Set <code>externalURL</code> first; the callback URL is built from it.</li>
+<li>In Gitea, create an OAuth2 application (Site Administration → Applications for the whole
+instance, or Settings → Applications for your account) with the redirect URI
+<code>&lt;externalURL&gt;/.auth/gitea/callback</code> and <strong>Confidential client</strong> checked.</li>
+<li>Copy its Client ID and Client Secret into <code>clientID</code> and <code>clientSecret</code>, and set <code>url</code> to
+the instance (required).</li>
+</ol>
+<p>Sourcegull requests the scopes <code>read:user</code> and <code>read:organization</code>. The account's email is the
+primary email when Gitea has verified it. <code>allowSignup</code> and the matching of existing accounts
+work as for GitLab; <code>allowOrgs</code> admits only members of those organizations. When a Gitea
+connection for the same <code>url</code> has an <a href="#repository-permissions"><code>authorization</code> block</a>, Sourcegull
+also requests <code>read:repository</code>, so the permissions sync can read the user's repositories with
+their token; users who signed in before it was added sign in again to grant it. Gitea access
+tokens expire (an hour by default); the permissions sync refreshes them with this provider.</p>
+<h3 id="openid-connect"><a class="anchor" href="#openid-connect" aria-hidden="true">#</a>OpenID Connect</h3>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;openidconnect&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;issuer&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://idp.example.com/realms/acme&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;clientID&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sourcegull&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;clientSecret&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&lt;secret&gt;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;requireEmailDomain&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;example.com&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;allowSignup&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;allowGroups&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;engineering&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;groupsClaim&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;groups&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;displayName&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;Company SSO&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>The provider is discovered at <code>&lt;issuer&gt;/.well-known/openid-configuration</code>; register the
+redirect URI <code>&lt;externalURL&gt;/.auth/openidconnect/callback</code>. <code>configID</code> sets a stable identifier
+when several OIDC providers are configured. <code>allowSignup</code> and
+<a href="#linking-by-email"><code>linkByEmail</code></a> work as for GitLab.</p>
+<h3 id="http-header-authenticating-proxy"><a class="anchor" href="#http-header-authenticating-proxy" aria-hidden="true">#</a>HTTP header (authenticating proxy)</h3>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;http-header&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;usernameHeader&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;X-Forwarded-User&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;emailHeader&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;X-Forwarded-Email&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;stripUsernameHeaderPrefix&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;accounts.example.com:&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;trustedProxies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;10.0.0.0/8&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>For deployments behind a proxy that authenticates users (for example oauth2-proxy). Headers are
+accepted only from addresses in <code>trustedProxies</code>; an empty list trusts nobody. Users are
+created on first request.</p>
+<h3 id="other-access-controls"><a class="anchor" href="#other-access-controls" aria-hidden="true">#</a>Other access controls</h3>
+<ul>
+<li><code>auth.public: true</code> lets signed-out visitors search the repositories that are visible to
+everyone.</li>
+<li><code>auth.allowedIpAddress</code> restricts access to IP addresses or CIDR ranges (with trusted proxy
+and client IP header settings for deployments behind a load balancer).</li>
+</ul>
+<p>SAML sign-in is not supported; use OpenID Connect, which most SAML identity providers also offer.
+Saving a site configuration with a <code>saml</code> provider fails with &quot;SAML sign-in is not supported&quot;, and
+so does <code>sourcegull config check</code>. A stored configuration that already has one still loads: the
+<code>saml</code> entry is left out and an error is logged, and the rest of the configuration applies.</p>
+<h2 id="repository-permissions"><a class="anchor" href="#repository-permissions" aria-hidden="true">#</a>Repository permissions</h2>
+<p>By default, every user can read every repository. A GitLab code host connection with an
+<code>authorization</code> block makes its private and internal projects readable only by the Sourcegull users
+who can read them on GitLab:</p>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="c1">// in the code host connection</span>
+<span class="s2">&quot;authorization&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;identityProvider&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;oauth&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<div class="table"><table>
+<thead>
+<tr>
+<th><code>identityProvider.type</code></th>
+<th>How Sourcegull users are matched to GitLab users</th>
+<th>Token</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>oauth</code></td>
+<td>users who signed in with the <a href="#gitlab-oauth">GitLab OAuth provider</a> for the same GitLab URL</td>
+<td>each user's own OAuth token</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>same username on GitLab and Sourcegull</td>
+<td>the connection token needs admin rights (<code>sudo</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Permissions are synced in the background, both per user (which projects can this user read?)
+and per repository (who can read this project?), and again on GitLab membership webhook
+events. Public projects are readable by everyone; <code>markInternalReposAsPublic</code> treats internal
+projects the same way. Site admins can see each user's and repository's permissions and sync
+history, and trigger a sync, under Site admin → Repository permissions and on the user and
+repository pages. The <code>permissions.sync*</code> keys tune the schedule.</p>
+<p>Every sign-in queues a sync of that user ahead of other syncs. Until it finishes, a user who
+signs in for the first time sees only the repositories everyone can read, so Sourcegull shows a
+banner on every page while it runs (&quot;Syncing your repository permissions from your code host&quot;),
+then offers to reload the page.</p>
+<p><strong>Gitea</strong> connections take the same <code>authorization</code> block. Private and internal repositories
+(internal: marked internal, or owned by a limited organization or user) become readable only by
+the Sourcegull users who can read their code on Gitea:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th><code>identityProvider.type</code></th>
+<th>How Sourcegull users are matched to Gitea users</th>
+<th>Token</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>oauth</code></td>
+<td>users who signed in with the <a href="#gitea-oauth">Gitea OAuth provider</a> for the same Gitea URL</td>
+<td>each user's own OAuth token (scope <code>read:repository</code>)</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>same username on Gitea and Sourcegull (deactivated Gitea users match no one)</td>
+<td>the connection token belongs to a Gitea site administrator, which acts as each user with <code>Sudo</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Per user, the sync lists the repositories the user owns, collaborates on or reaches through an
+organization team, and keeps those whose code they can read. With <code>username</code>, each repository is
+also synced on its own: its collaborators, the members of the organization teams with code
+access to it (the <code>Owners</code> team included), or the owner of a repository owned by a user.
+Internal repositories that a user reaches only by being signed in to Gitea (not as an owner,
+collaborator or team member) are not granted. Gitea sends no webhooks for membership or
+visibility changes, so these apply at the next scheduled sync (<code>permissions.sync*</code>); a webhook
+for a created, deleted or forked repository syncs the connection, and with <code>username</code> the new
+repository's permissions.</p>
+<h3 id="github-repository-permissions"><a class="anchor" href="#github-repository-permissions" aria-hidden="true">#</a>GitHub repository permissions</h3>
+<p>A GitHub connection (github.com or GitHub Enterprise Server) with the same <code>authorization</code> block
+makes its private repositories, and internal ones unless <code>markInternalReposAsPublic</code> is set,
+readable only by the Sourcegull users who can read them on GitHub. Only <code>identityProvider: oauth</code> is
+supported: users sign in with the <a href="#github-oauth">GitHub OAuth provider</a> for the same URL, and
+their own tokens list the repositories they own, collaborate on or reach through an
+organization. GitHub cannot act as another user, so <code>username</code> is rejected.</p>
+<ul>
+<li>Sign-in asks for the <code>repo</code> scope while such a connection exists. Users who signed in before
+it was added have tokens without it; their syncs fail with &quot;sign in again to grant access to
+private repositories&quot; and grant nothing until they sign in again.</li>
+<li>Per repository, Sourcegull lists the repository's collaborators (direct, through teams and
+through the organization's base permission) with the connection's credentials: a token with
+admin access to the repository, or a <a href="/docs/install/#github-app-authentication">GitHub App</a>
+installation with the repository <strong>Metadata</strong> and organization <strong>Members</strong> read permissions.
+Without them the repository sync fails with an error saying so, and the per-user syncs still
+apply. Collaborators are matched only to users who signed in with
+GitHub.</li>
+<li>A revoked token fails the user's sync, removes their synced grants and marks the account as
+needing sign-in.</li>
+<li>Webhooks (the connection's <code>webhooks</code> secrets) apply changes right away: <code>member</code>,
+<code>membership</code> and <code>organization</code> (member added or removed) events sync that user;
+<code>team_add</code> and <code>repository</code> (made private or public, transferred) events sync that
+repository. Subscribe the organization webhook to those events.</li>
+</ul>
+<p><strong>Signing in again</strong>: when a user's GitHub or Gitea token lacks the scope their sync needs, or
+a code host rejected their token (GitLab, GitHub or Gitea), Sourcegull shows them a banner on every
+page: &quot;Sign in again with GitHub to see your private repositories&quot;, linking to that code host's
+sign-in provider. It goes away once they sign in again. The sync jobs under Site admin →
+Repository permissions show each code host's error with its name.</p>
+<p><strong>Explicit permissions</strong>: with <code>&quot;permissions.userMapping&quot;: { &quot;enabled&quot;: true, &quot;bindID&quot;: &quot;email&quot; }</code> (or <code>&quot;username&quot;</code>), every private repository is restricted and site admins grant
+access through the GraphQL API, naming users by email or username.</p>
+<p>Permissions are enforced on every read path (search, file views, navigation, trends,
+watches, notebooks, bulk changes, MCP, …): a repository you cannot read looks like one that
+does not exist. Site admins read every repository unless <code>authz.enforceForSiteAdmins</code> is set.
+Grants and revocations apply immediately.</p>
+<h2 id="roles-rbac"><a class="anchor" href="#roles-rbac" aria-hidden="true">#</a>Roles (RBAC)</h2>
+<p>Every user has the <code>USER</code> role; site admins also have <code>SITE_ADMINISTRATOR</code>. Site admins can
+create more roles under <strong>Site admin → Roles</strong> and assign them to users. Permissions that roles
+grant include <code>BATCH_CHANGES#READ</code>, <code>BATCH_CHANGES#WRITE</code>, <code>OWNERSHIP#ASSIGN</code> and
+<code>REPO_METADATA#WRITE</code> (<a href="/docs/features/#repository-metadata">repository metadata</a>). By default
+<code>USER</code> grants every permission except <code>OWNERSHIP#ASSIGN</code>, and <code>SITE_ADMINISTRATOR</code> grants all.</p>
+<h2 id="organizations-and-teams"><a class="anchor" href="#organizations-and-teams" aria-hidden="true">#</a>Organizations and teams</h2>
+<ul>
+<li><strong>Organizations</strong> group users. Members share the organization's settings (part of the
+<a href="/docs/configuration/#settings-and-the-settings-cascade">settings cascade</a>), saved searches,
+search contexts, notebooks, watches, trends dashboards and bulk changes. Members invite
+others by username or email.</li>
+<li><strong>Teams</strong> (nested, with members) are used for <a href="/docs/features/#code-ownership">code ownership</a>.
+They can be synced hourly from GitLab groups with <code>own.syncTeamsFromGitLabGroups</code>.</li>
+</ul>
+<h2 id="access-tokens"><a class="anchor" href="#access-tokens" aria-hidden="true">#</a>Access tokens</h2>
+<p>Personal access tokens authenticate API clients, <code>gull</code>, CI uploads and <a href="/docs/mcp/">MCP</a> clients.
+Create them under <strong>User settings → Access tokens</strong> (or inline on the Connect an agent page).</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: token &lt;access token&gt;&quot;</span><span class="w"> </span>https://sourcegull.example.com/.api/graphql<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;query&quot;:&quot;{ currentUser { username } }&quot;}&#39;</span>
+</code></pre></div>
+<ul>
+<li>Scope <code>user:all</code> acts as the token's user. Scope <code>site-admin:sudo</code> (site admins only) lets a
+token act as any user with <code>Authorization: token-sudo user=&quot;&lt;username&gt;&quot;,token=&quot;&lt;token&gt;&quot;</code>.</li>
+<li><code>auth.accessTokens</code> controls who may create tokens (<code>all</code>, <code>site-admin-create</code>, <code>none</code>) and
+their maximum lifetime (<code>maxTokenExpiresInDays</code>, default 365).</li>
+<li>Tokens are stored hashed; a token is shown once, when it is created.</li>
+</ul>
+<p>MCP clients can also sign in through the browser instead of using a pasted token; the tokens
+they get work only at the MCP endpoint and are listed under <strong>User settings → Connected apps</strong>
+(<a href="/docs/mcp/#oauth-sign-in">OAuth sign-in</a>).</p>
+<h2 id="creating-users"><a class="anchor" href="#creating-users" aria-hidden="true">#</a>Creating users</h2>
+<p>Site admins create users under <strong>Site admin → Users → New user</strong>, whatever the sign-up settings:
+a username and, optionally, an email. With password sign-in on, the result is a one-time link,
+valid for 24 hours, for the user to set their password; it is also emailed to the address when
+<code>email.smtp</code> is configured. <strong>The email is verified</strong> marks the address verified, so a code host
+or OpenID Connect sign-in with that email <a href="#linking-by-email">links</a> to the new account; mark it
+only for an address you know is theirs. An address declared in <code>siteAdmins</code> cannot be marked
+verified here. The GraphQL mutation is <code>createUser</code>.</p>
+<h2 id="access-requests"><a class="anchor" href="#access-requests" aria-hidden="true">#</a>Access requests</h2>
+<p>When built-in sign-up is off, the sign-in page lets visitors request an account (turn this off
+with <code>&quot;auth.accessRequest&quot;: { &quot;enabled&quot;: false }</code>). Site admins review requests under <strong>Site
+admin → Access requests</strong>; approving one creates the user and returns a one-time account setup
+link, which is also emailed when SMTP is configured.</p>
+<h2 id="accounts"><a class="anchor" href="#accounts" aria-hidden="true">#</a>Accounts</h2>
+<p>Users manage their own account under <strong>User settings</strong>:</p>
+<ul>
+<li><strong>Profile</strong>: display name and avatar URL (an <code>http</code> or <code>https</code> URL). Users change their own
+username only when <code>&quot;auth.enableUsernameChanges&quot;: true</code>; site admins can always rename users.</li>
+<li><strong>Password</strong> (built-in sign-in only): changing it needs the current password, if the account
+has one, and signs the user out of every other session.</li>
+<li><strong>Emails</strong>: add addresses (a verification link is emailed when <code>email.smtp</code> is configured),
+resend verification, make a verified address primary, and remove addresses. The primary and
+the only address cannot be removed.</li>
+</ul>
+<p>Site admins can change any user's profile and emails, and deactivate users under <strong>Site admin →
+Users</strong>. Deactivation ends the user's sessions, revokes their access tokens and connected apps,
+and blocks sign-in; it frees the username. <strong>Show deactivated users</strong> lists them with a
+<strong>Reactivate</strong> action, which restores the account (access tokens stay revoked) unless another
+user has taken the username meanwhile. Site admins cannot deactivate themselves.</p>
+<p>The username, emails and active state of <a href="#scim-provisioning">SCIM</a>-managed users change only
+through the identity provider.</p>
+<p>The GraphQL mutations are <code>updateUser</code>, <code>updatePassword</code>, <code>addUserEmail</code>, <code>removeUserEmail</code>,
+<code>setUserEmailPrimary</code>, <code>resendVerificationEmail</code>, <code>deactivateUser</code> and <code>reactivateUser</code>.</p>
+<h2 id="scim-provisioning"><a class="anchor" href="#scim-provisioning" aria-hidden="true">#</a>SCIM provisioning</h2>
+<p>Sourcegull accepts SCIM 2.0 user provisioning from identity providers such as Okta, Microsoft Entra
+ID or Keycloak at <code>&lt;externalURL&gt;/.api/scim/v2</code>.</p>
+<ol>
+<li>Set <code>&quot;scim.authToken&quot;: &quot;&lt;random secret of at least 20 characters&gt;&quot;</code> in the site
+configuration.</li>
+<li>In the identity provider, configure the SCIM base URL and the token as a Bearer token.</li>
+</ol>
+<p>Users can be created, updated, deactivated (<code>active: false</code> ends their sessions and revokes their
+tokens and connected apps) and deleted, with filtering and pagination. Groups are not provisioned.</p>
+<h2 id="audit-events"><a class="anchor" href="#audit-events" aria-hidden="true">#</a>Audit events</h2>
+<p>Security events (sign-ins and failed sign-ins, sign-outs, password changes, access token
+creation and use, OAuth grants, refreshes and revocations of MCP clients, role and permission
+changes, site configuration changes and other admin actions) are recorded according to <code>log.securityEventLog.location</code>: <code>database</code> (the default),
+<code>logs</code> (structured application logs) or <code>all</code>.</p>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/docs/permissions.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/configuration/"><span>Previous</span><b>Configuration</b></a><a class="next" href="/docs/search/"><span>Next</span><b>Search</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#sign-in-providers">Sign-in providers</a></li><li class="l3"><a href="#built-in-accounts">Built-in accounts</a></li><li class="l3"><a href="#gitlab-oauth">GitLab OAuth</a></li><li class="l3"><a href="#github-oauth">GitHub OAuth</a></li><li class="l3"><a href="#gitea-oauth">Gitea OAuth</a></li><li class="l3"><a href="#openid-connect">OpenID Connect</a></li><li class="l3"><a href="#http-header-authenticating-proxy">HTTP header (authenticating proxy)</a></li><li class="l3"><a href="#other-access-controls">Other access controls</a></li><li class="l2"><a href="#repository-permissions">Repository permissions</a></li><li class="l3"><a href="#github-repository-permissions">GitHub repository permissions</a></li><li class="l2"><a href="#roles-rbac">Roles (RBAC)</a></li><li class="l2"><a href="#organizations-and-teams">Organizations and teams</a></li><li class="l2"><a href="#access-tokens">Access tokens</a></li><li class="l2"><a href="#creating-users">Creating users</a></li><li class="l2"><a href="#access-requests">Access requests</a></li><li class="l2"><a href="#accounts">Accounts</a></li><li class="l2"><a href="#scim-provisioning">SCIM provisioning</a></li><li class="l2"><a href="#audit-events">Audit events</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

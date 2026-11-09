@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sourcegull Helm chart · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/" aria-current="page">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="sourcegull-helm-chart">Sourcegull Helm chart</h1>
+<p>Deploys Sourcegull on Kubernetes. Every value is documented in
+<a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/sourcegull/values.yaml" rel="noopener"><code>values.yaml</code></a> and validated by <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/sourcegull/values.schema.json" rel="noopener"><code>values.schema.json</code></a>, which
+is generated from it: after changing values.yaml run
+<code>docker run --rm -v &quot;$PWD:$PWD&quot; -w &quot;$PWD&quot; python:3.12-alpine sh -c 'pip -q install pyyaml==6.0.2 &amp;&amp; python -I scripts/helm-schema.py deploy/helm/sourcegull/values.yaml deploy/helm/sourcegull/values.schema.json'</code>
+(enums, patterns and minimums are in its <code>RULES</code>);
+<a href="/docs/helm-sizing/"><code>SIZING.md</code></a> and <a href="https://github.com/sourcegull/sourcegull/tree/v0.8.0/deploy/helm/sourcegull/examples" rel="noopener"><code>examples/</code></a> give small, medium and large presets.</p>
+<p>Each release publishes the chart to <code>oci://ghcr.io/sourcegull/charts/sourcegull</code> (Helm 3.8 or
+later); the <a href="https://github.com/sourcegull/sourcegull/releases" rel="noopener">release notes</a> give its version.
+The presets in <code>examples/</code> come with the chart (<code>helm pull --untar</code> it to use them):</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>helm<span class="w"> </span>pull<span class="w"> </span>oci://ghcr.io/sourcegull/charts/sourcegull<span class="w"> </span>--untar
+helm<span class="w"> </span>install<span class="w"> </span>sourcegull<span class="w"> </span>oci://ghcr.io/sourcegull/charts/sourcegull<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-f<span class="w"> </span>sourcegull/examples/small.yaml<span class="w"> </span>--set<span class="w"> </span><span class="nv">externalURL</span><span class="o">=</span>https://sourcegull.example.com
+helm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>sourcegull
+</code></pre></div>
+<p>From a checkout of this repository, use <code>deploy/helm/sourcegull</code> as the chart instead.</p>
+<p>With no values at all the chart installs a working evaluation instance: the bundled database,
+generated encryption keys (back up the Secret, see the install notes) and the builtin blob store.</p>
+<h2 id="database-postgresqlmode"><a class="anchor" href="#database-postgresqlmode" aria-hidden="true">#</a>Database (<code>postgresql.mode</code>)</h2>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>What runs</th>
+<th>Database URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bundled</code> (default)</td>
+<td>one PostgreSQL StatefulSet (no HA, no backups)</td>
+<td>built from the generated password Secret (or <code>postgresql.auth.existingSecret</code>)</td>
+</tr>
+<tr>
+<td><code>cnpg</code></td>
+<td>a CloudNativePG <code>Cluster</code> (needs the CloudNativePG operator)</td>
+<td>the <code>uri</code> key of the operator's <code>&lt;fullname&gt;-pg-app</code> Secret</td>
+</tr>
+<tr>
+<td><code>external</code></td>
+<td>nothing; bring PostgreSQL 16 or newer</td>
+<td><code>database-url</code> in <code>existingSecret</code>, or <code>externalDatabase.existingSecret</code> / <code>existingSecretUrlKey</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>With <code>external</code>, migrations run in a pre-install/pre-upgrade hook Job; with <code>bundled</code> and <code>cnpg</code>
+they run in the init containers of the Sourcegull pods, which first wait for the database.</p>
+<p>The bundled database runs PostgreSQL 18, its data directory <code>pgdata</code> on the <code>data</code> volume. With
+<code>cnpg</code>, the chart leaves the image to <code>postgresql.cnpg.imageName</code> (empty: the operator's
+default). With <code>external</code>, Sourcegull needs PostgreSQL 16 or newer and is tested on 16 and 18.</p>
+<h2 id="encryption-keys-encryptionkeyssource"><a class="anchor" href="#encryption-keys-encryptionkeyssource" aria-hidden="true">#</a>Encryption keys (<code>encryptionKeys.source</code>)</h2>
+<p>Every Sourcegull container needs the same key-encryption keys, from the <code>encryption-keys</code> entry of
+the app Secret (<code>existingSecret</code>, or the Secret the chart generates when it is empty):</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Source</th>
+<th>The containers get</th>
+<th>Rotation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file</code> (default)</td>
+<td>the entry mounted as <code>SOURCEGULL_KEYS_FILE</code></td>
+<td>update the Secret, wait for the kubelet to refresh the mounted file (up to about a minute), then run <code>sourcegull keys rotate</code> in a pod; the other pods re-read the file</td>
+</tr>
+<tr>
+<td><code>env</code></td>
+<td><code>SOURCEGULL_KEYS</code> from the entry (<code>secretKeyRef</code>; no key in the pod spec)</td>
+<td>update the Secret, then <code>kubectl rollout restart</code> every Sourcegull workload</td>
+</tr>
+<tr>
+<td><code>external</code></td>
+<td>neither: set <code>SOURCEGULL_KEYS</code> yourself</td>
+<td>change the source, then restart every Sourcegull workload</td>
+</tr>
+</tbody>
+</table></div>
+<p>To rotate, append the new key to the entry (<code>k1:&lt;old&gt;</code> and <code>k2:&lt;new&gt;</code> on separate lines or
+comma-separated, the last one current). Updating the Secret alone does not rotate: the rotation
+runs when a process starts or <code>sourcegull keys rotate</code> runs. When re-encryption reaches 100% on
+<strong>Site admin → Migrations</strong>, remove the old key the same way (with <code>env</code> or <code>external</code>, that is a
+second restart). See <a href="/docs/configuration/#encryption-keys">configuration</a>.</p>
+<p>Generate a key with <code>printf 'k1:%s\n' &quot;$(openssl rand -base64 32)&quot;</code> (see
+<a href="/docs/configuration/#encryption-keys">configuration</a>). With <code>external</code>, a
+secret-injecting webhook can provide the value:</p>
+<div class="codeblock"><div class="codebar"><span>yaml</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nt">encryptionKeys</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">external</span>
+<span class="nt">extraEnvVars</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SOURCEGULL_KEYS</span>
+<span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vault:secret/data/sourcegull#keys</span>
+<span class="c1"># The webhook wraps the container command, which it reads from the pod spec; likewise for</span>
+<span class="c1"># worker, repo, blobstore and migrate.</span>
+<span class="nt">web</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;/usr/bin/tini&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;--&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;/usr/local/bin/sourcegull&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">podAnnotations</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="w"> </span><span class="nv">...</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># the webhook&#39;s annotations</span>
+</code></pre></div>
+<p>Sourcegull reads <code>SOURCEGULL_KEYS</code> once and removes it from its environment, so the processes it starts
+do not inherit it; a value still starting with <code>vault:</code> fails startup with an error saying the
+injector did not run.</p>
+<h2 id="configuration-as-code"><a class="anchor" href="#configuration-as-code" aria-hidden="true">#</a>Configuration as code</h2>
+<p><code>config.siteConfig</code>, <code>config.globalSettings</code> and <code>config.resources</code> hold the site configuration,
+the global settings and the <a href="/docs/configuration/#resources-file">resources file</a>
+(connections, search contexts, roles, site admins, outbound webhooks, executor secrets, code
+intelligence policies, feature flags) as YAML. Each one that is set is rendered as JSON into the
+<code>&lt;fullname&gt;-config</code> Secret, mounted on every Sourcegull pod, and is read-only in the UI. Changes apply
+within about a minute of <code>helm upgrade</code>, without a restart. Secrets stay out of the values file:
+reference them with <code>${env:NAME}</code> and pass the variables with <code>extraEnvVars</code> (or a whole Secret
+with <code>extraEnvVarsSecret</code>), or mount files with each component's <code>extraVolumes</code> and
+<code>extraVolumeMounts</code> and use <code>${file:/path}</code>.</p>
+<div class="codeblock"><div class="codebar"><span>yaml</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nt">extraEnvVars</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GITLAB_TOKEN</span>
+<span class="w">    </span><span class="nt">valueFrom</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> secretKeyRef</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">gitlab</span><span class="p p-Indicator">,</span><span class="nt"> key</span><span class="p">:</span><span class="w"> </span><span class="nv">token</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">OIDC_CLIENT_SECRET</span>
+<span class="w">    </span><span class="nt">valueFrom</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> secretKeyRef</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">oidc</span><span class="p p-Indicator">,</span><span class="nt"> key</span><span class="p">:</span><span class="w"> </span><span class="nv">client-secret</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="nt">config</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">siteConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">auth.providers</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openidconnect</span>
+<span class="w">        </span><span class="nt">displayName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SSO</span>
+<span class="w">        </span><span class="nt">issuer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://sso.example.com</span>
+<span class="w">        </span><span class="nt">clientID</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sourcegull</span>
+<span class="w">        </span><span class="nt">clientSecret</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;${env:OIDC_CLIENT_SECRET}&quot;</span>
+<span class="w">  </span><span class="nt">globalSettings</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">search.defaultPatternType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">keyword</span>
+<span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">siteAdmins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">admin@example.com</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">connections</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gitlab-main</span>
+<span class="w">        </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gitlab</span>
+<span class="w">        </span><span class="nt">displayName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GitLab</span>
+<span class="w">        </span><span class="nt">config</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://gitlab.example.com</span>
+<span class="w">          </span><span class="nt">token</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;${env:GITLAB_TOKEN}&quot;</span>
+<span class="w">          </span><span class="nt">projectQuery</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">groups/acme/projects</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<p>With <code>siteAdmins</code> declared, the first SSO sign-in of a listed (verified) address is site admin
+and no other first user is, so an install needs no clicks. To render the files elsewhere (for
+example from a secrets operator), set <code>config.existingSecret</code> to a Secret with any of the keys
+<code>site-config.json</code>, <code>global-settings.json</code> and <code>resources.json</code>, and list them in
+<code>config.existingSecretKeys</code>. Check the documents in CI with <code>sourcegull config check</code>.</p>
+<h2 id="worker-autoscaling"><a class="anchor" href="#worker-autoscaling" aria-hidden="true">#</a>Worker autoscaling</h2>
+<p><code>worker.autoscaling.keda.enabled=true</code> renders a KEDA <code>ScaledObject</code> (and <code>TriggerAuthentication</code>)
+whose <code>postgresql</code> trigger counts the jobs queued and due plus the jobs running across the
+worker's pgqueue tables. <code>worker.autoscaling.hpa.enabled=true</code> is a CPU HPA for clusters without KEDA. They are
+exclusive, and neither scales below one replica (the worker runs leader-elected singletons).</p>
+<p>With <code>worker.autoscaling.keda.trigger=prometheus</code> the <code>ScaledObject</code> uses KEDA's <code>prometheus</code>
+trigger instead, and KEDA needs no access to the database (no <code>TriggerAuthentication</code> is rendered
+and no NetworkPolicy rule lets the KEDA operator into the bundled database). It queries
+<code>worker.autoscaling.keda.prometheus.serverAddress</code> (required) for</p>
+<div class="codeblock"><div class="codebar"><span>promql</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>sum(max by (queue, state) (sourcegull_queue_jobs{state=~&quot;queued|processing&quot;,queue!~&quot;&lt;excludeQueues&gt;&quot;}))
+</code></pre></div>
+<p>and runs ceil(value / <code>prometheus.threshold</code>) workers (<code>threshold</code> defaults to
+<code>targetJobsPerReplica</code>). Every worker process exports the gauge from Postgres every 30 s, so
+Prometheus must scrape the worker pods (<code>metrics.serviceMonitor.enabled=true</code>, or your own scrape config).
+Differences from the SQL trigger: the value lags by up to the collection plus scrape interval,
+and <code>queued</code> includes jobs waiting out a retry delay. <code>prometheus.query</code> replaces the PromQL;
+<code>prometheus.authenticationRef</code> (an existing <code>TriggerAuthentication</code>) and <code>prometheus.authModes</code>
+configure authentication to Prometheus.</p>
+<div class="codeblock"><div class="codebar"><span>yaml</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nt">worker</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">autoscaling</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">keda</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">trigger</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prometheus</span>
+<span class="w">      </span><span class="nt">prometheus</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">serverAddress</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://prometheus-operated.monitoring.svc:9090</span>
+<span class="w">        </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25</span>
+</code></pre></div>
+<h2 id="pod-settings"><a class="anchor" href="#pod-settings" aria-hidden="true">#</a>Pod settings</h2>
+<p><code>web</code>, <code>worker</code>, <code>repo</code>, <code>blobstore</code> (the builtin blob StatefulSet) and <code>executor</code> take the same
+settings, documented once under <code>web</code> in <code>values.yaml</code>; <code>migrate</code> and <code>postgresql</code> take the
+subset that applies to them.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Settings</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Replicas and updates</td>
+<td><code>replicaCount</code>, <code>updateStrategy</code>, <code>autoscaling.hpa</code> (web, worker), <code>pdb.create</code> / <code>minAvailable</code> / <code>maxUnavailable</code></td>
+</tr>
+<tr>
+<td>Container</td>
+<td><code>command</code>, <code>args</code>, <code>resources</code>, <code>lifecycleHooks</code> (default: a 5 s preStop pause on web, repo and blob), <code>terminationGracePeriodSeconds</code></td>
+</tr>
+<tr>
+<td>Probes</td>
+<td><code>startupProbe</code>, <code>livenessProbe</code>, <code>readinessProbe</code> (<code>enabled</code> and timings), <code>customStartupProbe</code> and so on to replace one</td>
+</tr>
+<tr>
+<td>Security</td>
+<td><code>podSecurityContext</code>, <code>containerSecurityContext</code> (each with <code>enabled</code>)</td>
+</tr>
+<tr>
+<td>Environment</td>
+<td><code>extraEnvVars</code>, <code>extraEnvVarsCM</code>, <code>extraEnvVarsSecret</code>, after the top-level ones of the same names (which apply to every Sourcegull container but the executor)</td>
+</tr>
+<tr>
+<td>Extra objects</td>
+<td><code>extraVolumes</code>, <code>extraVolumeMounts</code>, <code>sidecars</code>, <code>initContainers</code>, <code>emptyDirSizeLimit</code></td>
+</tr>
+<tr>
+<td>Scheduling</td>
+<td><code>podAffinityPreset</code>, <code>podAntiAffinityPreset</code> (<code>soft</code> by default), <code>nodeAffinityPreset</code>, or <code>affinity</code> instead; <code>nodeSelector</code>, <code>tolerations</code>, <code>topologySpreadConstraints</code>, <code>priorityClassName</code>, <code>schedulerName</code>, <code>hostAliases</code></td>
+</tr>
+<tr>
+<td>Metadata</td>
+<td><code>podLabels</code>, <code>podAnnotations</code>; top-level <code>commonLabels</code> and <code>commonAnnotations</code> go on every resource</td>
+</tr>
+<tr>
+<td>Storage (repo, blob, postgresql)</td>
+<td><code>persistence</code> (<code>size</code>, <code>storageClass</code>, <code>accessModes</code>, <code>annotations</code>, <code>labels</code>; <code>enabled: false</code> uses an emptyDir on repo and blob), <code>persistentVolumeClaimRetentionPolicy</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><code>storageClass</code> falls back to <code>global.defaultStorageClass</code>; <code>&quot;-&quot;</code> sets an empty class (no
+dynamic provisioning). <code>global.imageRegistry</code> overrides every image's <code>registry</code>. Extra lists and
+maps go through <code>tpl</code>, so they can use <code>{{ .Release.Name }}</code> and the like; <code>extraDeploy</code> renders
+whole extra manifests.</p>
+<h2 id="tests"><a class="anchor" href="#tests" aria-hidden="true">#</a>Tests</h2>
+<p><code>helm test</code> always runs <code>test-readyz</code>. With <code>tests.smoke.enabled=true</code> it also signs in with a
+built-in account, runs a GraphQL query and a streaming search (<code>test-smoke</code>). The account comes
+from <code>tests.smoke.credentialsSecret</code> (keys <code>username</code>, <code>password</code>) or a generated Secret;
+<code>tests.smoke.signUp=true</code> signs it up first, which on a fresh install makes it the site admin, so
+use that only on throwaway installs.</p>
+<h2 id="versions"><a class="anchor" href="#versions" aria-hidden="true">#</a>Versions</h2>
+<ul>
+<li><code>version</code> in <code>Chart.yaml</code> follows SemVer and is bumped by <strong>every</strong> change to the chart
+(<code>ct lint</code> fails otherwise). While the chart is 0.x, chart-testing treats a minor bump as
+breaking, so: patch (0.1.x) for fixes and for new values or behaviour that keep existing values
+files and installs working; minor (0.x.0) when an existing values file or install needs changes
+(ct then skips the upgrade test, so such a bump needs an upgrade note in the table below).
+From 1.0: patch for fixes, minor for compatible additions, major for breaking changes.</li>
+<li><code>appVersion</code> is the Sourcegull release the chart deploys by default (<code>image.tag</code> defaults to it).</li>
+<li>Upgrades are tested from the previous chart version: <code>ct install --upgrade</code> installs the chart as
+it is on <code>main</code>, upgrades it to the working tree's chart and runs <code>helm test</code>.</li>
+</ul>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Chart</th>
+<th>Changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.1.0</td>
+<td>First release</td>
+</tr>
+<tr>
+<td>0.2.0</td>
+<td>Sourcegull 0.2.0; dashboards and alerts also match <code>role=&quot;all&quot;</code></td>
+</tr>
+<tr>
+<td>0.2.1</td>
+<td>Sourcegull 0.3.0</td>
+</tr>
+<tr>
+<td>0.2.2</td>
+<td>Sourcegull 0.4.0</td>
+</tr>
+<tr>
+<td>0.2.3</td>
+<td>Sourcegull 0.5.0</td>
+</tr>
+<tr>
+<td>0.2.4</td>
+<td>Sourcegull 0.6.0</td>
+</tr>
+<tr>
+<td>0.2.5</td>
+<td>Sourcegull 0.6.1</td>
+</tr>
+<tr>
+<td>0.2.6</td>
+<td>Sourcegull 0.6.2</td>
+</tr>
+<tr>
+<td>0.2.7</td>
+<td>Sourcegull 0.7.0</td>
+</tr>
+<tr>
+<td>0.2.8</td>
+<td>Sourcegull 0.8.0</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="testing-the-chart"><a class="anchor" href="#testing-the-chart" aria-hidden="true">#</a>Testing the chart</h2>
+<p><code>scripts/test/helm-ct.sh</code> runs everything in Docker:</p>
+<ul>
+<li><code>template</code>: checks that <code>values.schema.json</code> is current, then <code>helm lint --strict</code> and
+<code>helm template</code> for the defaults, each preset, each <code>ci/*-values.yaml</code>,
+<a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/ct/options-values.yaml" rel="noopener"><code>../ct/options-values.yaml</code></a> (every option at once) and an option
+matrix, plus combinations that must be refused;</li>
+<li><code>lint</code>: chart-testing <code>ct lint</code> (yamllint, Chart.yaml schema, version bump against <code>main</code>);</li>
+<li><code>install</code>: a kind cluster, the Sourcegull image built from <code>deploy/docker/Dockerfile</code> and loaded into
+it, then <code>ct install --upgrade</code> with <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/ct/kind-values.yaml" rel="noopener"><code>../ct/kind-values.yaml</code></a> layered
+on every install. CI runs the same in <code>.github/workflows/helm.yml</code>.</li>
+</ul>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/deploy/helm/sourcegull/README.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/upgrade-compose/"><span>Previous</span><b>Upgrade (Docker Compose)</b></a><a class="next" href="/docs/helm-sizing/"><span>Next</span><b>Sizing</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#database-postgresqlmode">Database (postgresql.mode)</a></li><li class="l2"><a href="#encryption-keys-encryptionkeyssource">Encryption keys (encryptionKeys.source)</a></li><li class="l2"><a href="#configuration-as-code">Configuration as code</a></li><li class="l2"><a href="#worker-autoscaling">Worker autoscaling</a></li><li class="l2"><a href="#pod-settings">Pod settings</a></li><li class="l2"><a href="#tests">Tests</a></li><li class="l2"><a href="#versions">Versions</a></li><li class="l2"><a href="#testing-the-chart">Testing the chart</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

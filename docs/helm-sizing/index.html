@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sizing the Sourcegull chart · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/" aria-current="page">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="sizing-the-sourcegull-chart">Sizing the Sourcegull chart</h1>
+<p>Three presets in <a href="https://github.com/sourcegull/sourcegull/tree/v0.8.0/deploy/helm/sourcegull/examples" rel="noopener"><code>examples/</code></a>, for installs from a team trial up to a large instance.
+Use the closest one as a starting point and change it once you have measured your own load.</p>
+<p><strong>All numbers here are estimates.</strong> They come from the sizing rules and performance targets
+below, not from load tests in a cluster.</p>
+<h2 id="the-rules-the-presets-apply"><a class="anchor" href="#the-rules-the-presets-apply" aria-hidden="true">#</a>The rules the presets apply</h2>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Rule</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>repo node disk</td>
+<td>about 1.5 × the size of the mirrored repositories on that node (bare repos, index shards, caches)</td>
+<td>estimate</td>
+</tr>
+<tr>
+<td>repo node RAM</td>
+<td>about 0.5 × the indexed source on that node (the index's hot set) + 2 GiB</td>
+<td>estimate</td>
+</tr>
+<tr>
+<td>repo node baseline</td>
+<td>&lt; 500 MiB RSS + mmap of the index</td>
+<td>target</td>
+</tr>
+<tr>
+<td>index size</td>
+<td>≤ 0.6 × the indexed source</td>
+<td>target</td>
+</tr>
+<tr>
+<td>web</td>
+<td>1 vCPU / 1 GiB per ~50 concurrent searchers; idle RSS &lt; 150 MiB</td>
+<td>estimate / target</td>
+</tr>
+<tr>
+<td>worker</td>
+<td>CPU-bound on SCIP processing (≥ 100 MB/s of SCIP input per core) and searches for watches, trends and search jobs; scale on queue depth</td>
+<td>target</td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td>everything but git data and the index: metadata, queues, permissions, code graph metadata, trends series</td>
+<td>estimate</td>
+</tr>
+</tbody>
+</table></div>
+<p>&quot;Indexed source&quot; is the size of the indexed branches' files (by default the default branch of
+each repository), usually far smaller than the bare repositories, which carry the whole history.
+A rough first guess is a quarter to a fifth of the mirrored size.</p>
+<h2 id="presets"><a class="anchor" href="#presets" aria-hidden="true">#</a>Presets</h2>
+<div class="table"><table>
+<thead>
+<tr>
+<th></th>
+<th><a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/sourcegull/examples/small.yaml" rel="noopener">small</a></th>
+<th><a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/sourcegull/examples/medium.yaml" rel="noopener">medium</a></th>
+<th><a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/sourcegull/examples/large.yaml" rel="noopener">large</a></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repositories</td>
+<td>up to ~1,000</td>
+<td>up to ~10,000</td>
+<td>up to ~50,000</td>
+</tr>
+<tr>
+<td>Mirrored repositories</td>
+<td>~20 GB</td>
+<td>~300 GB</td>
+<td>~2 TB</td>
+</tr>
+<tr>
+<td>Indexed source</td>
+<td>~5 GB</td>
+<td>~60 GB</td>
+<td>~400 GB</td>
+</tr>
+<tr>
+<td>Concurrent searchers</td>
+<td>~25</td>
+<td>~250</td>
+<td>~1,000</td>
+</tr>
+<tr>
+<td>web</td>
+<td>2–3 × (0.5 vCPU, 0.5–1 GiB)</td>
+<td>3–8 × (1 vCPU, 1–2 GiB)</td>
+<td>4–20 × (2 vCPU, 2–4 GiB)</td>
+</tr>
+<tr>
+<td>worker</td>
+<td>1 × (0.25 vCPU, 0.25–1 GiB)</td>
+<td>KEDA 2–8 × (0.5 vCPU, 0.5–2 GiB)</td>
+<td>KEDA 3–20 × (1 vCPU, 1–4 GiB)</td>
+</tr>
+<tr>
+<td>repo nodes</td>
+<td>1 × (2 vCPU, 5–6 GiB, 50 Gi)</td>
+<td>3 × (4 vCPU, 12–16 GiB, 200 Gi)</td>
+<td>6 × (8 vCPU, 36–48 GiB, 600 Gi)</td>
+</tr>
+<tr>
+<td>blob store</td>
+<td>builtin, 20 Gi</td>
+<td>builtin, 100 Gi</td>
+<td>S3-compatible bucket</td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td>bundled, 1 vCPU / 2 GiB, 20 Gi</td>
+<td>CloudNativePG, 3 × (2 vCPU, 16 GiB, 100 Gi + 20 Gi WAL)</td>
+<td>external, ~16 vCPU / 64 GiB</td>
+</tr>
+<tr>
+<td>executors</td>
+<td>off</td>
+<td>off</td>
+<td>2 × 8 concurrent jobs</td>
+</tr>
+<tr>
+<td>Cluster add-ons</td>
+<td>none</td>
+<td>CloudNativePG operator, KEDA</td>
+<td>KEDA</td>
+</tr>
+<tr>
+<td>Total requests (min replicas, without PostgreSQL)</td>
+<td>~3.5 vCPU, ~6.5 GiB</td>
+<td>~16 vCPU, ~40 GiB</td>
+<td>~59 vCPU, ~227 GiB, plus executor jobs (up to 16 × 2 vCPU / 4 GiB)</td>
+</tr>
+</tbody>
+</table></div>
+<p>(Requests / limits: the presets set CPU requests and memory requests and limits; there are no CPU
+limits, so pods can use idle CPU.)</p>
+<h3 id="notes"><a class="anchor" href="#notes" aria-hidden="true">#</a>Notes</h3>
+<ul>
+<li><strong>Repo nodes can grow.</strong> After <code>repo.replicaCount</code> changes and every repo pod runs with the new
+node list, about 1/N of the repositories move to their new node: copied from the old node (no
+load on the code host), checked, switched over, then removed from the old node after a few
+minutes. Searches keep working during a move; Site admin &gt; Repo nodes shows the progress. Moves
+need free space on the new nodes for their share. Scaling in clones the removed pods'
+repositories again from the code host (their volumes are gone). Leave room for growth in the
+PVC size; most storage classes can expand a PVC later, which the StatefulSet's volume template
+cannot.</li>
+<li><strong>Memory limits of repo nodes</strong> are kept above the requests: index files are memory-mapped,
+and page cache use counts towards the container's memory.</li>
+<li><strong>Workers</strong> also run the leader-elected singleton tasks, so they never scale below one replica.
+With KEDA (<code>worker.autoscaling.keda</code>) the count follows the pgqueue depth: jobs queued and due,
+plus jobs running, over every queue the worker processes, divided by
+<code>targetJobsPerReplica</code>. <code>trigger: prometheus</code> reads the same depth from the
+<code>sourcegull_queue_jobs</code> gauge in Prometheus instead of querying the database (README, &quot;Worker
+autoscaling&quot;). Without KEDA, <code>worker.autoscaling.hpa</code> scales on CPU instead.</li>
+<li><strong>PostgreSQL</strong>: <code>shared_buffers</code> about a quarter of the database's memory and
+<code>effective_cache_size</code> about three quarters, as in the presets. Use connection limits that fit
+the web, worker and repo pod counts at their maximum replicas (each pod keeps a pool).</li>
+<li><strong>Search latency targets</strong> (end to end at the web role): indexed literal search p50 &lt; 30 ms
+and p99 &lt; 200 ms to the first result on 10 GB of source with 8 cores, warm; unindexed search of
+the Linux kernel at an arbitrary commit &lt; 2 s. They assume the index's hot set fits in RAM, which
+is what the repo node RAM rule is for.</li>
+</ul>
+<h2 id="checking-a-values-file"><a class="anchor" href="#checking-a-values-file" aria-hidden="true">#</a>Checking a values file</h2>
+<p><code>scripts/test/helm-ct.sh template</code> runs <code>helm lint --strict</code> and <code>helm template</code> with every preset,
+every <code>ci/*-values.yaml</code> and a matrix of options. Run it after changing a preset.</p>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/deploy/helm/sourcegull/SIZING.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/helm/"><span>Previous</span><b>Helm chart</b></a><a class="next" href="/docs/observability/"><span>Next</span><b>Monitoring</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#the-rules-the-presets-apply">The rules the presets apply</a></li><li class="l2"><a href="#presets">Presets</a></li><li class="l3"><a href="#notes">Notes</a></li><li class="l2"><a href="#checking-a-values-file">Checking a values file</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

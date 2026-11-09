@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Monitoring · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/" aria-current="page">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="monitoring">Monitoring</h1>
+<p>Every Sourcegull process serves Prometheus metrics at <code>/metrics</code> on its internal listener
+(<code>:6060</code>). Sourcegull ships alerting rules and Grafana dashboards for them, generated from
+<code>crates/monitoring</code>. Load them into your own Prometheus and Grafana:</p>
+<ul>
+<li><a href="/docs/observability/alerts/">alerts.md</a>: every alert, with next steps. Rules file:
+<code>prometheus/sourcegull-alerts.yml</code> in the Compose bundle.</li>
+<li><a href="/docs/observability/dashboards/">dashboards.md</a>: one dashboard per service. JSON files:
+<code>grafana/dashboards/*.json</code> in the Compose bundle.</li>
+</ul>
+<p>The dashboards and alerts select series by a <code>role</code> label: <code>web</code>, <code>worker</code>, <code>repo</code> or <code>blob</code>
+for a process running that role, or <code>all</code> for one running every role (<code>sourcegull supervise</code>,
+<code>--roles=all</code>). Set it in the scrape config.</p>
+<h2 id="helm"><a class="anchor" href="#helm" aria-hidden="true">#</a>Helm</h2>
+<p>The chart creates the ServiceMonitor (<code>metrics.serviceMonitor.enabled=true</code>, sets <code>role</code>),
+the PrometheusRule (<code>metrics.prometheusRule.enabled=true</code>) and the dashboard ConfigMaps for
+the Grafana sidecar (<code>metrics.grafanaDashboards.enabled=true</code>). See the
+<a href="/docs/helm/">chart README</a>.</p>
+<h2 id="docker-compose"><a class="anchor" href="#docker-compose" aria-hidden="true">#</a>Docker Compose</h2>
+<p><a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/docker/prometheus/prometheus.yml" rel="noopener"><code>prometheus/prometheus.yml</code></a> in the bundle is
+an example scrape config for both Compose files.</p>
+<p>The internal listener is not published: it also serves the blob API of a process running the
+<code>blob</code> role (<code>compose.yaml</code>, and the <code>blob</code> service of <code>compose.production.yaml</code>), which has
+no authentication. A Prometheus in a container on the same host can join the Compose network
+and scrape <code>sourcegull:6060</code> (or <code>web:6060</code>, … in the production layout):</p>
+<div class="codeblock"><div class="codebar"><span>yaml</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="c1"># In your Prometheus&#39; Compose file.</span>
+<span class="nt">services</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">prometheus</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">networks</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">default</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">sourcegull</span><span class="p p-Indicator">]</span>
+<span class="nt">networks</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">sourcegull</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sourcegull_default</span>
+<span class="w">    </span><span class="nt">external</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div>
+<p>For a Prometheus elsewhere, publish the port on an address that only it can reach, with a
+<code>compose.override.yaml</code> next to <code>compose.yaml</code> (Compose reads it with the default file names):</p>
+<div class="codeblock"><div class="codebar"><span>yaml</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nt">services</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">sourcegull</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;10.0.0.5:6060:6060&quot;</span><span class="w">   </span><span class="c1"># a private address of this host</span>
+</code></pre></div>
+<p>With <code>compose.production.yaml</code>, put the override in its own file and add it with <code>-f</code> (or to
+<code>COMPOSE_FILE</code> in <code>.env</code>, separated by <code>:</code>), and publish each service on its own host port.</p>
+<p>Then:</p>
+<ol>
+<li>Add the scrape job with the <code>role</code> label (as in the example), and
+<code>prometheus/sourcegull-alerts.yml</code> under <code>rule_files</code>.</li>
+<li>In Grafana, import each <code>grafana/dashboards/*.json</code> (Dashboards → New → Import) and pick
+your Prometheus data source. Or provision the directory with a
+<a href="https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards" rel="noopener">dashboard provider</a>.</li>
+</ol>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/docs/observability/README.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/helm-sizing/"><span>Previous</span><b>Sizing</b></a><a class="next" href="/docs/observability/dashboards/"><span>Next</span><b>Dashboards</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#helm">Helm</a></li><li class="l2"><a href="#docker-compose">Docker Compose</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Configuration · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/" aria-current="page">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="configuration">Configuration</h1>
+<p>Sourcegull is configured in three places:</p>
+<ul>
+<li><strong>Environment variables</strong> (or the matching command-line flags) set what a process needs to
+start: its roles, the database, listeners, data directories, keys and repo nodes.</li>
+<li><strong>Site configuration</strong>: one JSONC document, stored in the database and edited under
+<strong>Site admin → Site configuration</strong>, for instance-wide behaviour (sign-in, permissions,
+search, executors, email, …). Changes apply without a restart, except
+<code>gitMaxConcurrentClones</code> (read when a repo node starts) and
+<code>insights.query.worker.concurrency</code> (read when a worker starts). The page is split into sections;
+<code>/site-admin/configuration?section=&lt;id&gt;</code> opens one (<code>general</code>, <code>auth</code>, <code>permissions</code>, <code>repositories</code>,
+<code>search</code>, <code>codeIntel</code>, <code>batchChanges</code>, <code>insights</code>, <code>notifications</code>, <code>observability</code>). Each
+section links the admin pages it controls, and those pages link back under <strong>Related</strong> in
+their header. <strong>Find a setting</strong> above the sections searches key names and descriptions.</li>
+<li><strong>Settings</strong>: JSONC documents per user, per organization and global, merged into each user's
+effective settings.</li>
+</ul>
+<p>All of the instance's own configuration can instead come from files kept in git
+(<a href="#configuration-as-code">configuration as code</a>): the site configuration, the global settings,
+and the objects otherwise created in the UI (code host connections, search contexts, roles, site
+admins, outbound webhooks, executor secrets, code intelligence policies and feature flags).</p>
+<h2 id="environment-variables"><a class="anchor" href="#environment-variables" aria-hidden="true">#</a>Environment variables</h2>
+<p>Every flag of <code>sourcegull</code> can be set through its <code>SOURCEGULL_*</code> variable (<code>sourcegull &lt;command&gt; --help</code>
+lists them). Booleans accept <code>1</code>/<code>0</code>, <code>true</code>/<code>false</code>, <code>yes</code>/<code>no</code> and <code>on</code>/<code>off</code>. The file
+variables (<code>SOURCEGULL_*_FILE</code>) and <code>SOURCEGULL_KEYS</code> count as unset when empty.</p>
+<h3 id="server-sourcegull-run-sourcegull-supervise"><a class="anchor" href="#server-sourcegull-run-sourcegull-supervise" aria-hidden="true">#</a>Server (<code>sourcegull run</code>, <code>sourcegull supervise</code>)</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SOURCEGULL_ROLES</code></td>
+<td><code>all</code></td>
+<td>Comma-separated roles: <code>web</code>, <code>repo</code>, <code>worker</code>, <code>blob</code>, or <code>all</code> (<a href="/docs/architecture/#one-binary-several-roles">architecture</a>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_DATABASE_URL</code></td>
+<td></td>
+<td>PostgreSQL URL (required); may list several hosts of a replicated cluster (<a href="#replicated-databases">below</a>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_HTTP_ADDR</code></td>
+<td><code>0.0.0.0:7080</code></td>
+<td>Public listener of the <code>web</code> role: UI, <code>/.api/*</code>, <code>/healthz</code>, <code>/readyz</code>.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_INTERNAL_ADDR</code></td>
+<td><code>0.0.0.0:6060</code></td>
+<td>Internal listener: <code>/metrics</code>, <code>/healthz</code>, <code>/readyz</code>; with the <code>blob</code> role also the blob API that <code>SOURCEGULL_BLOB_STORE=http://…</code> points at.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_DATA_DIR</code></td>
+<td><code>/var/opt/sourcegull</code></td>
+<td>Persistent data.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_SHUTDOWN_DELAY</code></td>
+<td><code>5s</code></td>
+<td>On SIGTERM or SIGINT, how long <code>/readyz</code> returns 503 while the process keeps serving, before the listeners close (<code>500ms</code>, <code>5s</code>, <code>1m</code>, or seconds; <code>0</code> stops at once). The Helm chart sets <code>0</code>: its pods pause in a <code>preStop</code> hook instead.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_KEYS_FILE</code></td>
+<td><code>$SOURCEGULL_DATA_DIR/keys</code></td>
+<td>Encryption key file (<a href="#encryption-keys">below</a>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_KEYS</code></td>
+<td></td>
+<td>The encryption keys themselves, instead of a key file (<a href="#keys-in-the-environment">below</a>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXTERNAL_URL</code></td>
+<td></td>
+<td>Default for <code>externalURL</code> when the site configuration does not set it.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_SITE_CONFIG_FILE</code></td>
+<td></td>
+<td>Read the site configuration from this file instead of the database; it is then read-only in the UI and API (<a href="#configuration-as-code">below</a>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_RESOURCES_FILE</code></td>
+<td></td>
+<td>Resources file: connections, search contexts, roles, site admins, webhooks, executor secrets, code intelligence policies and feature flags (<a href="#resources-file">below</a>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_GLOBAL_SETTINGS_FILE</code></td>
+<td></td>
+<td>Global settings document; they are then read-only in the UI and API (<a href="#global-settings-file">below</a>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_BLOB_STORE</code></td>
+<td><code>&lt;data dir&gt;/blobs</code></td>
+<td><code>file:///path</code>, <code>http://host:port</code> of a <code>blob</code> role, or <code>s3://bucket[/prefix]</code> (<a href="/docs/install/#s3-blob-storage">S3</a>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_DB_MAX_CONNECTIONS</code></td>
+<td><code>20</code></td>
+<td>Main database pool per process (<a href="#database-connections">below</a>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_DB_WORKER_MAX_CONNECTIONS</code></td>
+<td><code>10</code></td>
+<td>The worker role's own pool when it shares a process with other roles.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_LOG_FORMAT</code></td>
+<td><code>json</code></td>
+<td><code>json</code> or <code>pretty</code>. Log filters come from <code>RUST_LOG</code> (default <code>info</code>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_RATE_LIMIT_BACKEND</code></td>
+<td><code>auto</code></td>
+<td>Code host request budgets: <code>postgres</code> (shared by every process), <code>memory</code> (per process), or <code>auto</code> (<code>memory</code> when one process runs web, repo and worker).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_LEADER_BACKEND</code></td>
+<td><code>postgres</code></td>
+<td>Leases of singleton tasks: Postgres advisory locks or Kubernetes <code>Lease</code> objects (<code>kubernetes</code>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_LEADER_NAMESPACE</code>, <code>SOURCEGULL_LEADER_LEASE_PREFIX</code>, <code>SOURCEGULL_LEADER_IDENTITY</code>, <code>SOURCEGULL_LEADER_LEASE_DURATION</code></td>
+<td>pod namespace, <code>sourcegull</code>, host name, <code>15</code></td>
+<td>Kubernetes lease settings.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_SEARCH_THREADS</code></td>
+<td>available CPUs</td>
+<td>Search worker threads on a repo node.</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="repo-nodes"><a class="anchor" href="#repo-nodes" aria-hidden="true">#</a>Repo nodes</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SOURCEGULL_REPO_NODES</code></td>
+<td>this node</td>
+<td>Comma-separated repo node addresses, e.g. <code>http://sourcegull-repo-0.sourcegull-repo:3178,http://sourcegull-repo-1.sourcegull-repo:3178</code>. Every process must list them with the same spelling.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_REPO_NODE_ADDR</code></td>
+<td>the only node, or the one whose host is <code>$HOSTNAME</code></td>
+<td>This node's own address as listed in <code>SOURCEGULL_REPO_NODES</code>.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_REPO_GRPC_ADDR</code></td>
+<td><code>0.0.0.0:3178</code></td>
+<td>gRPC listener of the <code>repo</code> role.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_REPO_DATA_DIR</code></td>
+<td><code>$SOURCEGULL_DATA_DIR</code></td>
+<td>Bare repositories, index shards and caches.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_REPO_MAX_CONCURRENT_FETCHES</code></td>
+<td><code>10</code></td>
+<td>Concurrent fetches per node (clones: site configuration <code>gitMaxConcurrentClones</code>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_REPO_SSH_KEY</code>, <code>SOURCEGULL_REPO_SSH_KNOWN_HOSTS</code></td>
+<td></td>
+<td>Private key and <code>known_hosts</code> for connections that clone over SSH.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_REPO_DISABLE_INDEX</code></td>
+<td><code>false</code></td>
+<td>Keep no search index on this node; content search then reads from git.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_REPO_INDEX_DEBOUNCE_MS</code></td>
+<td><code>5000</code></td>
+<td>Pushes within this window are indexed in one build.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_REPO_PAUSE_CLONES_FREE_PERCENT</code>, <code>SOURCEGULL_REPO_PAUSE_CLONES_FREE_GIB</code></td>
+<td><code>10</code>, <code>20</code></td>
+<td>Clones pause when free disk space is below both thresholds. <code>0</code> turns the pause off.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_REPO_EVICT_FREE_PERCENT</code>, <code>SOURCEGULL_REPO_EVICT_FREE_GIB</code></td>
+<td><code>7</code>, <code>10</code></td>
+<td>Caches and shards of inactive repositories are evicted when free space is below both. <code>0</code> turns eviction off.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_REPO_REBALANCE_CONCURRENCY</code></td>
+<td><code>2</code></td>
+<td>Repositories moved to this node at once during rebalancing; <code>0</code> turns moves to it off.</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="blob-storage-s3"><a class="anchor" href="#blob-storage-s3" aria-hidden="true">#</a>Blob storage (S3)</h3>
+<p><code>SOURCEGULL_S3_ENDPOINT</code>, <code>SOURCEGULL_S3_REGION</code>, <code>SOURCEGULL_S3_PATH_STYLE</code>, <code>SOURCEGULL_S3_ACCESS_KEY_ID</code>,
+<code>SOURCEGULL_S3_SECRET_ACCESS_KEY</code>, <code>SOURCEGULL_S3_SESSION_TOKEN</code>, <code>SOURCEGULL_S3_CA_CERT</code>,
+<code>SOURCEGULL_S3_INSECURE_SKIP_VERIFY</code>, <code>SOURCEGULL_S3_PART_SIZE</code>, <code>SOURCEGULL_S3_CREATE_BUCKET</code>: see
+<a href="/docs/install/#s3-blob-storage">Install → S3 blob storage</a>.</p>
+<h3 id="executors-sourcegull-executor"><a class="anchor" href="#executors-sourcegull-executor" aria-hidden="true">#</a>Executors (<code>sourcegull executor</code>)</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_FRONTEND_URL</code></td>
+<td></td>
+<td>URL of the web role, e.g. <code>http://sourcegull-web:7080</code>.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_TOKEN</code></td>
+<td></td>
+<td>The shared token, equal to <code>executors.accessToken</code> in the site configuration.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_NAME</code></td>
+<td>host name</td>
+<td>Unique executor name.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_QUEUES</code></td>
+<td><code>codeintel</code></td>
+<td><code>codeintel</code> (auto-indexing) and/or <code>batches</code> (bulk change spec executions).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_MAX_JOBS</code></td>
+<td><code>1</code></td>
+<td>Jobs run at the same time.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_RUNTIME</code></td>
+<td><code>docker</code></td>
+<td><code>docker</code> (a container per step) or <code>kubernetes</code> (a Job per auto-indexing job, a Job per step of a bulk change).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_DOCKER_NETWORK</code></td>
+<td><code>bridge</code></td>
+<td>Network of step containers: <code>bridge</code>, <code>none</code> or a named network.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_DOCKER_MEMORY</code>, <code>SOURCEGULL_EXECUTOR_DOCKER_CPUS</code></td>
+<td>none</td>
+<td>Limits per step container (<code>4g</code>, <code>2</code>).</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_DOCKER_ALWAYS_PULL</code></td>
+<td><code>false</code></td>
+<td>Pull step images even when present.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_POLL_INTERVAL</code>, <code>SOURCEGULL_EXECUTOR_SCRATCH_DIR</code>, <code>SOURCEGULL_EXECUTOR_GIT</code></td>
+<td><code>1</code>, <code>/tmp/sourcegull-executor</code>, <code>git</code></td>
+<td>Poll interval (seconds), checkout directory, git binary.</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_EXECUTOR_KUBERNETES_*</code></td>
+<td></td>
+<td>Kubernetes runtime: <code>NAMESPACE</code>, <code>HELPER_IMAGE</code>, <code>POD_FRONTEND_URL</code>, <code>RUNTIME_CLASS</code>, <code>NODE_SELECTOR</code>, <code>TOLERATIONS</code>, <code>SERVICE_ACCOUNT</code>, <code>IMAGE_PULL_SECRETS</code>, <code>CPU_REQUEST</code>, <code>MEMORY_REQUEST</code>, <code>CPU_LIMIT</code>, <code>MEMORY_LIMIT</code>, <code>WORKSPACE_SIZE</code>, <code>DEADLINE</code> (default 4 h), <code>START_TIMEOUT</code> (default 600 s), <code>KEEP_JOBS</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="command-line-client-gull"><a class="anchor" href="#command-line-client-gull" aria-hidden="true">#</a>Command-line client (<code>gull</code>)</h3>
+<p><code>SOURCEGULL_ENDPOINT</code> (the instance URL) and <code>SOURCEGULL_ACCESS_TOKEN</code> (an
+<a href="/docs/permissions/#access-tokens">access token</a>).</p>
+<h2 id="site-configuration"><a class="anchor" href="#site-configuration" aria-hidden="true">#</a>Site configuration</h2>
+<p>The site configuration is JSONC (comments and trailing commas allowed). The editor under
+<strong>Site admin → Site configuration</strong> completes keys, shows their documentation, validates as you
+type, and can reorganize keys by section. The JSON Schema is served at
+<code>/.api/site-config-schema</code>. A new instance starts from a commented template that shows the
+common keys.</p>
+<p>Credentials (<code>email.smtp.password</code>, <code>auth.providers[].clientSecret</code>, <code>executors.accessToken</code>,
+<code>scim.authToken</code>) are shown as <code>&quot;REDACTED&quot;</code> in the editor and the API. Saving a document that
+still holds <code>&quot;REDACTED&quot;</code> keeps the stored value (an auth provider keeps the secret of the stored
+provider with the same <code>type</code> and <code>clientID</code>); a new value replaces it. <code>${env:…}</code> and
+<code>${file:…}</code> references are shown as they are.</p>
+<p>Frequently used keys:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>externalURL</code></td>
+<td>The URL users reach Sourcegull at; used for OAuth callbacks, webhooks and links in emails.</td>
+</tr>
+<tr>
+<td><code>updateCheck</code></td>
+<td>Whether Site admin shows that a newer release is out (default <code>true</code>). When a site admin opens the overview, the server asks the GitHub releases API for the latest release (at most every 12 hours) and compares it locally; the request carries nothing about the instance. Turn it off without internet access.</td>
+</tr>
+<tr>
+<td><code>auth.providers</code>, <code>auth.public</code>, <code>auth.sessionExpiry</code>, <code>auth.passwordPolicy</code>, <code>auth.lockout</code>, <code>auth.rateLimits</code>, <code>auth.accessTokens</code>, <code>auth.accessRequest</code>, <code>auth.allowedIpAddress</code>, <code>auth.enableUsernameChanges</code></td>
+<td>Sign-in and accounts (<a href="/docs/permissions/">permissions</a>).</td>
+</tr>
+<tr>
+<td><code>mcp.oauth.enabled</code>, <code>mcp.oauth.dynamicClientRegistration</code>, <code>mcp.oauth.clientIdMetadataDocuments</code>, <code>mcp.oauth.accessTokenTTL</code>, <code>mcp.oauth.refreshTokenTTL</code>, <code>mcp.oauth.allowedRedirectHosts</code></td>
+<td>OAuth sign-in of MCP clients (<a href="/docs/mcp/#oauth-sign-in">MCP</a>).</td>
+</tr>
+<tr>
+<td><code>permissions.userMapping</code>, <code>authz.enforceForSiteAdmins</code>, <code>permissions.sync*</code></td>
+<td>Repository permissions.</td>
+</tr>
+<tr>
+<td><code>scim.authToken</code></td>
+<td>Enables SCIM provisioning.</td>
+</tr>
+<tr>
+<td><code>repoListUpdateInterval</code>, <code>gitUpdateInterval</code>, <code>disableAutoGitUpdates</code>, <code>gitMaxConcurrentClones</code></td>
+<td>Discovery and fetching.</td>
+</tr>
+<tr>
+<td><code>repoNodes.pinnedRepos</code></td>
+<td>Pin repositories to repo nodes (repository name → repo node address). Replaces <code>experimentalFeatures.gitServerPinnedRepos</code>, which is still read, with a deprecation warning, when <code>repoNodes.pinnedRepos</code> is not set.</td>
+</tr>
+<tr>
+<td><code>codeHosts.tokenExpiryAlerts</code></td>
+<td>Emails before code host connection tokens expire: <code>enabled</code> (default <code>true</code>), <code>daysBefore</code> (default <code>[14, 7, 1]</code>), <code>recipients</code> (default: every site admin) (<a href="/docs/install/#token-expiry-alerts">token expiry alerts</a>).</td>
+</tr>
+<tr>
+<td><code>search.limits</code></td>
+<td>Search limits, read at each search: <code>defaultTimeoutSeconds</code> (20), <code>maxTimeoutSeconds</code> (60; <code>timeout:</code> is clamped to it), <code>streamingMaxResults</code> (500, the result count without <code>count:</code>), <code>maxRepos</code> (unset: no limit; repositories beyond it are skipped with a warning), <code>commitDiffMaxRepos</code> (50) and <code>commitDiffWithTimeFilterMaxRepos</code> (10000) for <code>type:commit</code>/<code>type:diff</code> without and with <code>before:</code>/<code>after:</code>, and for search jobs <code>exhaustiveMaxResults</code> (1000000) and <code>exhaustiveTimeoutSeconds</code> (3600, per repository revision).</td>
+</tr>
+<tr>
+<td><code>search.index.branches</code></td>
+<td>Branches to index besides the default branch, per repository (up to 63).</td>
+</tr>
+<tr>
+<td><code>search.index.recentBranches</code></td>
+<td>Also index each repository's recently updated branches: <code>maxAge</code> (default <code>30d</code>, <code>0</code> for no limit) and <code>max</code> (default 20, up to 63). Off unless set (<a href="/docs/search/#searching-all-branches">searching all branches</a>).</td>
+</tr>
+<tr>
+<td><code>search.index.alwaysIndex</code></td>
+<td>Path patterns whose files are searched by content above 1 MiB (up to 16 MiB), per repository; <code>&quot;*&quot;</code> applies to all (<a href="/docs/search/">search</a>).</td>
+</tr>
+<tr>
+<td><code>executors.accessToken</code></td>
+<td>Shared secret of the executors (at least 20 characters).</td>
+</tr>
+<tr>
+<td><code>codeIntelAutoIndexing.*</code>, <code>codeIntel.gitlabJobTokenUploads</code>, <code>codeIntel.maxUploadBytes</code>, <code>codeIntelRanking.documentReferenceCountsEnabled</code></td>
+<td><a href="/docs/code-navigation/">Code navigation</a>.</td>
+</tr>
+<tr>
+<td><code>batchChanges.*</code></td>
+<td><a href="/docs/bulk-changes/">Bulk changes</a>.</td>
+</tr>
+<tr>
+<td><code>insights.*</code>, <code>searchJobs.retention</code>, <code>own.syncTeamsFromGitLabGroups</code></td>
+<td><a href="/docs/features/">Other features</a>.</td>
+</tr>
+<tr>
+<td><code>email.address</code>, <code>email.senderName</code>, <code>email.smtp</code></td>
+<td>Outbound email.</td>
+</tr>
+<tr>
+<td><code>webhooks.outbound.allowedHosts</code>, <code>webhooks.outbound.logRetention</code></td>
+<td>Outbound webhooks.</td>
+</tr>
+<tr>
+<td><code>log.securityEventLog</code>, <code>eventLogs.retention</code>, <code>eventLogs.rollupRetention</code></td>
+<td>Audit and usage logs.</td>
+</tr>
+<tr>
+<td><code>observability.logSlowSearches</code>, <code>observability.logSlowGraphQLRequests</code>, <code>outboundRequestLogLimit</code></td>
+<td>Diagnostic logs. A slow GraphQL request is stored with its variables only when it is a query, and with the values of secret-looking variables (tokens, passwords, credentials) replaced.</td>
+</tr>
+</tbody>
+</table></div>
+<p>With <code>SOURCEGULL_SITE_CONFIG_FILE</code> the document comes from a file (for example a Kubernetes
+Secret) and cannot be edited in the UI; see <a href="#configuration-as-code">configuration as code</a>.</p>
+<h2 id="settings-and-the-settings-cascade"><a class="anchor" href="#settings-and-the-settings-cascade" aria-hidden="true">#</a>Settings and the settings cascade</h2>
+<p>Settings are per-viewer preferences. They exist at three levels:</p>
+<ol>
+<li><strong>Global settings</strong> (Site admin → Global settings),</li>
+<li>each <strong>organization's</strong> settings, for its members,</li>
+<li>each <strong>user's</strong> own settings (User settings → Preferences).</li>
+</ol>
+<p>A user's effective settings merge them in that order: objects merge key by key, and any other
+value at a later level replaces the earlier one, so a list set at one level replaces the whole
+list from the levels before it. The settings:</p>
+<ul>
+<li><code>search.defaultPatternType</code> (default <code>keyword</code>): the pattern type the search boxes start with. A
+link to a search keeps its own, so it gives everyone the same results.</li>
+<li><code>search.includeArchived</code>: see <a href="/docs/search/#archived-repositories">Archived repositories</a>.</li>
+<li><code>quicklinks</code>: links on the search home page. Targets are <code>http</code>, <code>https</code>, <code>mailto</code> or relative;
+others are not shown.</li>
+<li><code>notices</code>: banners, at the top of every page or on the search home page. Messages are Markdown,
+without HTML. A dismissible notice stays dismissed in that browser until its message changes.</li>
+<li><code>orgs.allMembersBatchChangesAdmin</code>, in an organization's settings: every member may close and
+delete the organization's bulk changes.</li>
+</ul>
+<p>Other keys are kept and passed through to the UI. <code>search.includeForks</code> is accepted but has no
+effect yet: use <code>fork:yes</code> in the query.</p>
+<p><strong>Site admin → Global settings</strong>, an organization's <strong>Settings</strong> page and <strong>User settings →
+Preferences</strong> edit the document as forms or, under <strong>Edit as JSON</strong>, as text. A form changes only
+the value it touches, so comments and other keys stay. A value set at a higher level shows as the
+inherited default. Keys this version does not know are listed under <strong>Other</strong>.</p>
+<p>The <strong>settings reference</strong> page at <code>/help/settings</code> lists every setting with its type,
+allowed values and description; the editor's starting document links to it. The schema is
+served at <code>/.api/settings-schema</code>.</p>
+<h2 id="changing-settings-with-an-agent"><a class="anchor" href="#changing-settings-with-an-agent" aria-hidden="true">#</a>Changing settings with an agent</h2>
+<p>The <a href="/docs/mcp/">MCP tools</a> are read-only: an agent connected to Sourcegull cannot change the
+instance through them. That keeps the tools that read code (which may hold instructions written
+by anyone) away from the instance's configuration. When a site admin's agent connects, the
+server instructions tell it where changes are made instead:</p>
+<ul>
+<li><strong>Files.</strong> What comes from <code>SOURCEGULL_SITE_CONFIG_FILE</code>, <code>SOURCEGULL_GLOBAL_SETTINGS_FILE</code> or
+<code>SOURCEGULL_RESOURCES_FILE</code> is changed in those files (the instructions name the ones in use),
+checked with <code>sourcegull config check</code> and rolled out as usual
+(<a href="#configuration-as-code">configuration as code</a>). An agent working in the deployment's
+repository can propose the change as a merge request.</li>
+<li><strong>The GraphQL API</strong>, for everything else, with an <a href="/docs/permissions/#access-tokens">access token</a>
+of the admin. Tokens from the MCP browser sign-in do not work there.</li>
+</ul>
+<p>For the API route, create a token under <strong>User settings → Access tokens</strong> with a short expiry
+and put it in the environment of the shell the agent runs commands in, not in the conversation:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nb">export</span><span class="w"> </span><span class="nv">SOURCEGULL_ADMIN_TOKEN</span><span class="o">=</span>&lt;token&gt;
+</code></pre></div>
+<p>The agent then reads and saves documents with the version it read, so a concurrent edit makes
+the save fail instead of being overwritten:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>api<span class="o">()</span><span class="w"> </span><span class="o">{</span>
+<span class="w">  </span>curl<span class="w"> </span>-sS<span class="w"> </span>https://sourcegull.example.com/.api/graphql<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: token </span><span class="nv">$SOURCEGULL_ADMIN_TOKEN</span><span class="s2">&quot;</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$1</span><span class="s2">&quot;</span>
+<span class="o">}</span>
+
+<span class="c1"># Site configuration: the version and the document (secrets show as &quot;REDACTED&quot;)</span>
+api<span class="w"> </span><span class="s1">&#39;{&quot;query&quot;:&quot;{ site { configuration { id effectiveContents validationMessages } } }&quot;}&#39;</span>
+
+<span class="c1"># Save the edited document; &quot;REDACTED&quot; left in place keeps the stored secret</span>
+api<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>jq<span class="w"> </span>-n<span class="w"> </span>--arg<span class="w"> </span>input<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>cat<span class="w"> </span>site-config.jsonc<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span>--argjson<span class="w"> </span>id<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">&#39;{query: &quot;mutation($id: Int!, $input: String!) { updateSiteConfiguration(lastID: $id, input: $input) }&quot;,</span>
+<span class="s1">    variables: {id: $id, input: $input}}&#39;</span><span class="k">)</span><span class="s2">&quot;</span>
+
+<span class="c1"># Global settings: the subject ID and version, then a save</span>
+api<span class="w"> </span><span class="s1">&#39;{&quot;query&quot;:&quot;{ site { id latestSettings { id contents } } }&quot;}&#39;</span>
+api<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>jq<span class="w"> </span>-n<span class="w"> </span>--arg<span class="w"> </span>subject<span class="w"> </span><span class="s2">&quot;&lt;site id&gt;&quot;</span><span class="w"> </span>--arg<span class="w"> </span>contents<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>cat<span class="w"> </span>settings.jsonc<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span>--argjson<span class="w"> </span>id<span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">&#39;{query: &quot;mutation($subject: ID!, $id: Int, $contents: String!) { settingsMutation(input: {subject: $subject, lastID: $id}) { overwriteSettings(contents: $contents) { empty { alwaysNil } } } }&quot;,</span>
+<span class="s1">    variables: {subject: $subject, id: $id, contents: $contents}}&#39;</span><span class="k">)</span><span class="s2">&quot;</span>
+</code></pre></div>
+<p>The schema can be introspected, and the site configuration's JSON Schema is at
+<code>/.api/site-config-schema</code>. Revoke the token when the work is done.</p>
+<h2 id="encryption-keys"><a class="anchor" href="#encryption-keys" aria-hidden="true">#</a>Encryption keys</h2>
+<p>Secrets in the database (code host tokens, OAuth credentials, executor secrets, webhook secrets
+and URLs, watch webhook URLs) are encrypted with data keys, which are in turn wrapped
+by key-encryption keys from the key file. The key file has one <code>id:base64key</code> line per key
+(32 random bytes); the <strong>last</strong> line is the current key:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;k1:%s\n&#39;</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>keys
+</code></pre></div>
+<ul>
+<li><code>sourcegull supervise</code> creates the file if it is missing. <code>sourcegull run</code> without a key
+file starts, but features that store secrets (code host connections) are unavailable.</li>
+<li>Back the file up with the database. Losing it makes the stored secrets unreadable. Every
+Sourcegull process needs the same keys.</li>
+</ul>
+<p><strong>Rotation.</strong> Append a new key as the last line, then restart a process or run
+<code>sourcegull keys rotate</code>. Changing the file alone does nothing: a rotation happens only when a
+process starts or that command runs. The first process with the new key re-wraps every data
+key, retired ones included, with it, creates new data keys and retires the old ones
+(decrypt-only). It then notifies the other processes, which re-read their key file and reload the
+data keys without a restart. Workers then re-encrypt every secret in the background as an
+out-of-band migration; progress shows on <strong>Site admin → Migrations</strong> and in
+<code>sourcegull migrate status</code>. When it reaches 100%, remove the old key line; nothing removes it for
+you. <code>sourcegull keys rotate</code> with an unchanged file creates new data keys under the same key.</p>
+<ul>
+<li>Because the data keys are re-wrapped, the file never needs more than two lines, the old key and
+the new one, and only during a rotation.</li>
+<li>Every process must have the new key before or when the rotation runs. A process with only the
+old key cannot unwrap the re-wrapped data keys: its reload fails with a warning
+(&quot;reloading the data encryption keys failed&quot;) and it keeps the keys it had until it is restarted
+with the new key.</li>
+<li>Retired data keys stay in the <code>encryption_keys</code> table (one row per record class per rotation);
+once re-encryption reaches 100% no secret uses them.</li>
+<li><code>sourcegull keys status</code> lists the data keys and how many secrets still use retired ones.</li>
+</ul>
+<p>The Compose walkthrough is in <a href="/docs/upgrade-compose/#rotating-the-encryption-key">upgrade.md</a>.</p>
+<h3 id="keys-in-the-environment"><a class="anchor" href="#keys-in-the-environment" aria-hidden="true">#</a>Keys in the environment</h3>
+<p><code>SOURCEGULL_KEYS</code> holds the same entries as the key file, separated by commas (or newlines), the
+last one current:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="c1"># One key:</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">SOURCEGULL_KEYS</span><span class="o">=</span><span class="s2">&quot;k1:</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">&quot;</span>
+<span class="c1"># After a rotation (keep k1 until re-encryption reaches 100%):</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">SOURCEGULL_KEYS</span><span class="o">=</span><span class="s2">&quot;k1:&lt;old base64&gt;,k2:</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">&quot;</span>
+</code></pre></div>
+<ul>
+<li>Set either <code>SOURCEGULL_KEYS</code> or <code>SOURCEGULL_KEYS_FILE</code>, not both (that is a startup error).
+<code>sourcegull supervise</code> does not create a key file when <code>SOURCEGULL_KEYS</code> is set.</li>
+<li>Each process reads the variable once at startup and removes it from its environment before it
+starts any thread, so the git processes and other children it runs never inherit it. The
+process's initial environment (<code>/proc/&lt;pid&gt;/environ</code>) still holds it, readable by the same
+user and root, as for any variable. Secret
+injectors that resolve the value before the process starts (a mutating webhook that wraps the
+container's command, an init process that execs Sourcegull with the resolved environment) work
+unchanged. A value still starting with <code>vault:</code> is reported as an unresolved reference rather
+than as a malformed key.</li>
+<li>The variable is fixed for the life of a process, so a rotation takes two restarts of every
+process: one with <code>old,new</code> (the first to start rotates), and one with only <code>new</code> after
+re-encryption reaches 100%. A key file is re-read on rotation without a restart.
+<code>sourcegull keys status</code> and <code>sourcegull keys rotate</code> accept either source.</li>
+<li>Anyone who can read a process's or container's environment (<code>docker inspect</code>, a pod spec with
+a literal value) can read the keys. In Kubernetes, reference a Secret (<code>valueFrom</code>) or use an
+injector, never a literal value; the Helm chart's <code>encryptionKeys.source=env</code> does the former.</li>
+</ul>
+<h2 id="database-connections"><a class="anchor" href="#database-connections" aria-hidden="true">#</a>Database connections</h2>
+<p>Each process has a main pool (<code>SOURCEGULL_DB_MAX_CONNECTIONS</code>, default 20) for the <code>web</code>, <code>repo</code>
+and <code>blob</code> roles. When the <code>worker</code> role runs in the same process (<code>--roles=all</code>,
+<code>supervise</code>), it gets its own pool (<code>SOURCEGULL_DB_WORKER_MAX_CONNECTIONS</code>, default 10) so
+background jobs cannot starve requests; a process that runs only <code>worker</code> uses the main pool.
+Outside these pools, each process holds one <code>LISTEN</code> connection and one connection per leader
+lease it holds (with the Postgres leader backend).</p>
+<p>Keep the sum over every process below PostgreSQL's <code>max_connections</code>. Connections show up in
+<code>pg_stat_activity</code> with <code>application_name</code> <code>sourcegull:&lt;roles&gt;</code>.</p>
+<h3 id="replicated-databases"><a class="anchor" href="#replicated-databases" aria-hidden="true">#</a>Replicated databases</h3>
+<p>For a cluster with a primary and replicas (a managed database's host list, Patroni, repmgr),
+list every host in the URL, as libpq does:</p>
+<div class="codeblock"><div class="codebar"><span>text</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>postgres://sourcegull:PASSWORD@db1.example.com:5432,db2.example.com:5432,db3.example.com/sourcegull?sslmode=verify-full
+</code></pre></div>
+<p>The user, password, database and parameters are shared by all hosts; a host without a port
+uses 5432. With several hosts, Sourcegull connects only to the writable primary (as
+<code>target_session_attrs=read-write</code> does in libpq, and that parameter may be given; <code>primary</code> means the
+same, other values are rejected). Every process:</p>
+<ul>
+<li>at startup probes all hosts at once and uses the first writable one in URL order;</li>
+<li>checks the primary every second over one more connection (<code>application_name</code>
+<code>sourcegull:primary-check</code>);</li>
+<li>when that check fails, probes all hosts again and moves to the new primary as soon as one
+accepts writes. Requests that need a connection meanwhile wait for it (up to 10 seconds)
+instead of failing; connections to the old primary are closed,
+and the <code>LISTEN</code> and leader-lease connections reconnect to the new one;</li>
+<li>checks that every new connection is writable, so a demoted primary that is still up is never
+used.</li>
+</ul>
+<p>A switchover usually takes one to two seconds. Queries running on the old primary when it fails
+still fail. Replicas are not used for reads.</p>
+<p>A single host name that follows the primary (a cloud provider's read-write endpoint, a
+CloudNativePG <code>-rw</code> Service, a VIP) also works, but is only as fast as its DNS or routing
+update. Sourcegull resolves the name for each new connection and keeps no DNS cache of its
+own. Add <code>?target_session_attrs=read-write</code> to such a URL, so connections that reach a replica
+before the update are rejected and retried.</p>
+<h2 id="database-migrations"><a class="anchor" href="#database-migrations" aria-hidden="true">#</a>Database migrations</h2>
+<p><code>sourcegull migrate</code> manages the schema: <code>up</code>, <code>down --to &lt;n&gt;</code>, <code>status</code>, <code>validate</code>, <code>versions</code>,
+<code>drift [--version &lt;v&gt;]</code> (compares the live schema with a version's and prints SQL that fixes
+each difference) and <code>upgrade --from &lt;version&gt; [--to &lt;version&gt;] [--dry-run]</code> (upgrades across
+several versions after a drift check; stop Sourcegull first). Out-of-band data migrations run in the
+background afterwards; <strong>Site admin → Updates</strong> lists the ones that must finish before the next
+upgrade.</p>
+<h2 id="configuration-as-code"><a class="anchor" href="#configuration-as-code" aria-hidden="true">#</a>Configuration as code</h2>
+<p>Three files can replace what is otherwise edited in the UI, so a deployment is described by
+files kept in git and rolled out with Compose or Helm:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>File</th>
+<th>Variable</th>
+<th>Holds</th>
+<th>Applied by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Site configuration</td>
+<td><code>SOURCEGULL_SITE_CONFIG_FILE</code></td>
+<td>The <a href="#site-configuration">site configuration</a> document</td>
+<td>every process, re-read every 30 s</td>
+</tr>
+<tr>
+<td>Global settings</td>
+<td><code>SOURCEGULL_GLOBAL_SETTINGS_FILE</code></td>
+<td>The <a href="#settings-and-the-settings-cascade">global settings</a> document</td>
+<td>the leader worker, every 30 s</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td><code>SOURCEGULL_RESOURCES_FILE</code></td>
+<td>Code host connections, search contexts, roles, site admins, outbound webhooks, executor secrets, code intelligence policies, feature flags</td>
+<td>the leader worker, every 30 s</td>
+</tr>
+</tbody>
+</table></div>
+<p>What a file sets is read-only in the UI and API (mutations fail with <code>READ_ONLY</code>, and pages
+show who manages the object). What the files do not cover stays in the database: users and
+their settings, organizations, access tokens and OAuth grants, saved searches, notebooks, code
+monitors, insights, bulk changes and code intelligence data, so the database still needs
+<a href="#backups">backups</a>.</p>
+<p><code>sourcegull config check</code> validates the files offline, for CI pipelines: the format, every entry
+with the checks the UI applies, and secret references (resolved from the environment the
+command runs in; missing ones are named, values are never printed). It exits with 1 on a
+problem.</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>sourcegull<span class="w"> </span>config<span class="w"> </span>check<span class="w"> </span>--site-config<span class="w"> </span>site-config.jsonc<span class="w"> </span>--resources<span class="w"> </span>resources.jsonc<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--global-settings<span class="w"> </span>global-settings.jsonc
+</code></pre></div>
+<h3 id="secret-references"><a class="anchor" href="#secret-references" aria-hidden="true">#</a>Secret references</h3>
+<p>Any string in the site configuration and resources files can reference secrets, so the files
+can be committed:</p>
+<ul>
+<li><code>${env:NAME}</code>: the environment variable <code>NAME</code> (unset is an error, never an empty string);</li>
+<li><code>${file:/path}</code>: the file's contents without trailing newlines, e.g. a mounted Kubernetes or
+Docker secret;</li>
+<li><code>$${</code> is a literal <code>${</code>; any other <code>${…}</code> is left as it is.</li>
+</ul>
+<p>References are resolved every time the file is read, so a changed secret file (or, after a
+restart, a changed variable) is applied like a changed config file. A reference that cannot be
+resolved keeps the previous state and names the field and the variable or file, never a value.
+The global settings file does not resolve references: every user can read the global settings.</p>
+<h3 id="resources-file"><a class="anchor" href="#resources-file" aria-hidden="true">#</a>Resources file</h3>
+<p>A JSONC object with optional sections; its schema is served at <code>/.api/resources-schema</code> (point
+<code>&quot;$schema&quot;</code> at it for editor completion). A section that is present owns the objects it lists;
+an absent section manages nothing.</p>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Verified email addresses of site admins.</span>
+<span class="w">  </span><span class="s2">&quot;siteAdmins&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;admin@example.com&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;connections&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span>
+<span class="w">    </span><span class="s2">&quot;key&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;gitlab-main&quot;</span><span class="p">,</span><span class="w">            </span><span class="c1">// stable id: renaming it recreates the connection</span>
+<span class="w">    </span><span class="s2">&quot;kind&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;gitlab&quot;</span><span class="p">,</span><span class="w">                </span><span class="c1">// gitlab | github | gitea</span>
+<span class="w">    </span><span class="s2">&quot;displayName&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;GitLab&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">&quot;config&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://gitlab.example.com&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;token&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;${env:GITLAB_TOKEN}&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="s2">&quot;projectQuery&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;groups/acme/projects&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}],</span>
+<span class="w">  </span><span class="s2">&quot;searchContexts&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;backend&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;description&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;Backend services&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;query&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;repo:^gitlab\\.example\\.com/acme/&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;api&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;repositories&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;repository&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;gitlab.example.com/acme/api&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;revisions&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;main&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}]</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;roles&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;bulk-editors&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;permissions&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;BATCH_CHANGES#WRITE&quot;</span><span class="p">],</span><span class="w"> </span><span class="s2">&quot;users&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;bob@example.com&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}],</span>
+<span class="w">  </span><span class="s2">&quot;outboundWebhooks&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;key&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;audit&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://hooks.example.com/sourcegull&quot;</span><span class="p">,</span>
+<span class="w">                         </span><span class="s2">&quot;secret&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;${env:HOOK_SECRET}&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;eventTypes&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;batch_change:apply&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}],</span>
+<span class="w">  </span><span class="s2">&quot;executorSecrets&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;scope&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;batches&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;GITLAB_TOKEN&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;value&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;${env:GITLAB_TOKEN}&quot;</span><span class="w"> </span><span class="p">}],</span>
+<span class="w">  </span><span class="s2">&quot;codeIntelPolicies&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;key&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;default-branch&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;Default branches&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;GIT_TREE&quot;</span><span class="p">,</span>
+<span class="w">                          </span><span class="s2">&quot;pattern&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;HEAD&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;indexingEnabled&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}],</span>
+<span class="w">  </span><span class="s2">&quot;featureFlags&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;my-flag&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;value&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;beta&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;rolloutBasisPoints&quot;</span><span class="o">:</span><span class="w"> </span><span class="mf">2500</span><span class="w"> </span><span class="p">}]</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Entries</th>
+<th>Identity (takeover)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>connections</code></td>
+<td><code>key</code>, <code>kind</code>, <code>displayName</code>, <code>config</code> (the connection configuration, as in the UI's editor)</td>
+<td>same kind and code host URL</td>
+</tr>
+<tr>
+<td><code>searchContexts</code></td>
+<td><code>name</code>, <code>description</code>, <code>public</code> (default <code>true</code>), <code>query</code> or <code>repositories</code> (<code>repository</code>, <code>revisions</code>; the default branch when empty)</td>
+<td>same name, instance-level</td>
+</tr>
+<tr>
+<td><code>roles</code></td>
+<td><code>name</code>, <code>permissions</code> (<code>NAMESPACE#ACTION</code>), <code>users</code> (verified emails)</td>
+<td>same name</td>
+</tr>
+<tr>
+<td><code>siteAdmins</code></td>
+<td>verified email addresses</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>outboundWebhooks</code></td>
+<td><code>key</code>, <code>url</code>, <code>secret</code>, <code>eventTypes</code> (names, or <code>{ &quot;eventType&quot;, &quot;scope&quot; }</code>)</td>
+<td>same URL</td>
+</tr>
+<tr>
+<td><code>executorSecrets</code></td>
+<td><code>scope</code> (<code>batches</code> or <code>codeintel</code>), <code>name</code> (the variable jobs see), <code>value</code></td>
+<td>same scope and name, global</td>
+</tr>
+<tr>
+<td><code>codeIntelPolicies</code></td>
+<td><code>key</code>, <code>name</code>, <code>type</code> (<code>GIT_TREE</code>, <code>GIT_TAG</code>, <code>GIT_COMMIT</code>), <code>pattern</code>, <code>repositoryPatterns</code>, <code>retentionEnabled</code>, <code>retentionDurationHours</code>, <code>retainIntermediateCommits</code>, <code>indexingEnabled</code>, <code>indexCommitMaxAgeHours</code>, <code>indexIntermediateCommits</code>, <code>syntacticIndexingEnabled</code></td>
+<td>same name, not tied to one repository</td>
+</tr>
+<tr>
+<td><code>featureFlags</code></td>
+<td><code>name</code>, <code>value</code> or <code>rolloutBasisPoints</code></td>
+<td>same name</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every entry has a key: <code>key</code> where given, else its name (<code>&lt;scope&gt;/&lt;name&gt;</code> for executor
+secrets). On each pass, per section:</p>
+<ul>
+<li>an unchanged entry (same resolved contents) does nothing; a changed one, including a rotated
+secret it references, updates its object in place;</li>
+<li>a new key first looks for an object with its identity that no entry owns (see the table) and
+takes it over, so moving a running instance to a file recreates nothing; otherwise the object
+is created;</li>
+<li>a key removed from its section deletes its object (a connection's repositories go with it
+unless another connection lists them);</li>
+<li>a removed section, or an unset <code>SOURCEGULL_RESOURCES_FILE</code>, releases its objects to the UI
+unchanged;</li>
+<li>changes the system makes to a declared object, such as a refreshed OAuth token in a
+connection's configuration, are kept until the entry itself changes.</li>
+</ul>
+<p>With <code>&quot;exclusive&quot;: true</code>, each present section also owns the objects of its kind that the file
+does not list: they become read-only and nothing of that kind can be created in the UI.</p>
+<p><strong>Site admins and role members</strong> are matched against verified email addresses. Every source
+that marks an address verified counts: an identity provider that vouches for it at sign-in,
+SCIM provisioning, the email header of <code>http-header</code> sign-in, and a user confirming it by email.
+Only declare addresses whose verification you trust there.</p>
+<p>A declared admin needs a way to get a verified email without an existing admin: a GitLab,
+GitHub, Gitea or OpenID Connect provider, <code>http-header</code> with <code>emailHeader</code>, SCIM
+(<code>scim.authToken</code>), or open password sign-up (<code>allowSignup</code> on the built-in provider) with
+<code>email.smtp</code>, so the admin signs up and confirms the address by email. With none of these, no
+admin could ever sign in, so the file is refused with an error on <code>siteAdmins</code>; <code>sourcegull config check</code> reports it when given the site config too.</p>
+<p>A listed user becomes site admin, or gets the role, at sign-in or within 30 s, and gets it back
+if it is taken away in the UI; removing the address takes back only what the file granted.
+While <code>siteAdmins</code> is set, the first user to sign up is not made site admin, and a declared
+admin's first sign-in with a provider that verifies their email creates their account even when
+that provider's sign-up is closed, so a fresh SSO-only instance needs no manual step. Declared admins cannot be demoted in the UI, and site admins cannot verify or
+unverify a declared address for its user; with <code>exclusive</code>, no one can be promoted or demoted
+there, and admins the file does not list are demoted once one declared admin is site admin.</p>
+<p><strong>Errors.</strong> A file that cannot be read, parsed or resolved, or fails a check, changes nothing:
+the last applied state stays. An entry the database rejects (for example a name another object
+uses) fails alone while the others apply. Either way the error shows in the site admin status
+indicator and on <strong>Site admin → Site configuration</strong>, and <code>sourcegull_declared_config_errors{source}</code>
+is 1. Every change is a <code>DeclaredResourceChanged</code> or <code>DeclaredGrantChanged</code> security event, and
+<code>sourcegull_declared_config_changes_total{kind,action}</code> counts them.</p>
+<h3 id="global-settings-file"><a class="anchor" href="#global-settings-file" aria-hidden="true">#</a>Global settings file</h3>
+<p><code>SOURCEGULL_GLOBAL_SETTINGS_FILE</code> holds the global settings document (JSONC, as in <strong>Site admin →
+Global settings</strong>). When its contents differ from the current global settings, the leader
+worker saves them as a new version; the page is read-only meanwhile. Unsetting the variable
+makes the global settings editable again, starting from the last version.</p>
+<h3 id="deploying-the-files"><a class="anchor" href="#deploying-the-files" aria-hidden="true">#</a>Deploying the files</h3>
+<ul>
+<li><strong>Helm</strong>: <code>config.siteConfig</code>, <code>config.globalSettings</code> and <code>config.resources</code> in values are
+rendered into a Secret mounted on every Sourcegull pod (or use <code>config.existingSecret</code>); the
+variables the files reference go in <code>extraEnvVars</code>. See the <a href="/docs/helm/#configuration-as-code">chart README</a>.</li>
+<li><strong>Docker Compose</strong>: put the files in <code>config/</code> of the bundle (<code>deploy/docker/config/</code> in a
+checkout; mounted at <code>/etc/sourcegull/config</code>), name them in <code>.env</code>, and put referenced
+variables in <code>config/secrets.env</code>.</li>
+</ul>
+<h3 id="backups"><a class="anchor" href="#backups" aria-hidden="true">#</a>Backups</h3>
+<p>With configuration as code, the database holds only what users create; restoring an instance
+from git and an empty database loses users' tokens, settings and content, not the instance's
+configuration. Back up the database and the encryption keys together anyway (a database backup
+needs the keys that were current when it was taken). The blob store holds SCIP uploads, which
+CI or auto-indexing can upload again.</p>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/docs/configuration.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/install/"><span>Previous</span><b>Install</b></a><a class="next" href="/docs/permissions/"><span>Next</span><b>Permissions and sign-in</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#environment-variables">Environment variables</a></li><li class="l3"><a href="#server-sourcegull-run-sourcegull-supervise">Server (sourcegull run, sourcegull supervise)</a></li><li class="l3"><a href="#repo-nodes">Repo nodes</a></li><li class="l3"><a href="#blob-storage-s3">Blob storage (S3)</a></li><li class="l3"><a href="#executors-sourcegull-executor">Executors (sourcegull executor)</a></li><li class="l3"><a href="#command-line-client-gull">Command-line client (gull)</a></li><li class="l2"><a href="#site-configuration">Site configuration</a></li><li class="l2"><a href="#settings-and-the-settings-cascade">Settings and the settings cascade</a></li><li class="l2"><a href="#changing-settings-with-an-agent">Changing settings with an agent</a></li><li class="l2"><a href="#encryption-keys">Encryption keys</a></li><li class="l3"><a href="#keys-in-the-environment">Keys in the environment</a></li><li class="l2"><a href="#database-connections">Database connections</a></li><li class="l3"><a href="#replicated-databases">Replicated databases</a></li><li class="l2"><a href="#database-migrations">Database migrations</a></li><li class="l2"><a href="#configuration-as-code">Configuration as code</a></li><li class="l3"><a href="#secret-references">Secret references</a></li><li class="l3"><a href="#resources-file">Resources file</a></li><li class="l3"><a href="#global-settings-file">Global settings file</a></li><li class="l3"><a href="#deploying-the-files">Deploying the files</a></li><li class="l3"><a href="#backups">Backups</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>
