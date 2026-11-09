@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sourcegull: self-hosted code search</title>
+  <meta name="description" content="Self-hosted code search and code intelligence for GitLab, GitHub and Gitea, written in Rust. Every feature is open source under Apache-2.0. There is no paid tier." />
+  <meta property="og:title" content="Sourcegull" />
+  <meta property="og:description" content="Find code across thousands of repositories in milliseconds. For you and your agents." />
+  <meta property="og:image" content="assets/readme-search-light.webp" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+      <symbol id="i-nav" viewBox="0 0 24 24"><path d="m8 6-6 6 6 6"/><path d="m16 6 6 6-6 6"/><path d="m14 4-4 16"/></symbol>
+      <symbol id="i-agent" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 7V3"/><circle cx="9" cy="13" r="1.2"/><circle cx="15" cy="13" r="1.2"/><path d="M2 12v3M22 12v3"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+      <symbol id="i-bulk" viewBox="0 0 24 24"><path d="M6 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+      <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-7"/></symbol>
+      <symbol id="i-hosts" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+      <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14 16 9"/><path d="M3.5 18a9 9 0 1 1 17 0"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+      <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top"><img src="favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span></a>
+      <nav class="topnav" aria-label="Sections">
+        <a href="#features">Features</a>
+        <a href="#agents">Agents</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull/tree/main/docs">Docs</a>
+      </nav>
+      <a class="gh" href="https://github.com/sourcegull/sourcegull" aria-label="GitHub"><svg class="ic"><use href="#i-github"/></svg><span>GitHub</span></a>
+    </div>
+  </header>
+
+  <section class="hero" id="top">
+    <div class="glow" aria-hidden="true"></div>
+    <div class="wrap hero-inner">
+      <a class="pill" href="https://github.com/sourcegull/sourcegull/blob/main/LICENSE-APACHE"><span class="dot"></span>Apache-2.0 · no paid tier, ever</a>
+      <h1>Find code across thousands of repositories <span class="grad">in milliseconds</span></h1>
+      <p class="lede">Self-hosted code search and code intelligence for GitLab, GitHub and Gitea, written in Rust. For you and your agents.</p>
+      <div class="actions">
+        <a class="btn primary" href="#install">Install in a minute</a>
+        <a class="btn" href="https://github.com/sourcegull/sourcegull"><svg class="ic"><use href="#i-github"/></svg>View on GitHub</a>
+      </div>
+    </div>
+    <div class="wrap">
+      <figure class="shot hero-shot">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/readme-search-dark.webp" />
+          <img src="assets/readme-search-light.webp" width="1800" height="1069" alt="Typing the query lang:rust serde::Deserialize; 119 results from axum, serde and tokio arrive in a few milliseconds" />
+        </picture>
+      </figure>
+    </div>
+  </section>
+
+  <section class="stats wrap" aria-label="Numbers">
+    <a class="stat" href="https://github.com/sourcegull/sourcegull/blob/main/docs/mcp.md#token-usage"><b>5–70×</b><span>fewer tokens for an agent than cloning and grepping: 5× on a question about one repository, 70× for references to a common name across about 1,400 repositories</span></a>
+    <a class="stat" href="https://github.com/sourcegull/sourcegull#benchmark-the-same-gitlab-one-product-at-a-time"><b>3 min 21 s</b><span>to make 1,007 repositories (5.2 GB of source) searchable, cloning included, on 6 CPUs</span></a>
+    <a class="stat" href="https://github.com/sourcegull/sourcegull#benchmark-the-same-gitlab-one-product-at-a-time"><b>84 ms</b><span>median regex search across all 1,007 of them</span></a>
+    <div class="stat"><b>1</b><span>Rust binary; PostgreSQL is the only dependency</span></div>
+  </section>
+
+  <section class="wrap block" id="features">
+    <p class="eyebrow">Features</p>
+    <h2>Everything a code search platform needs. All of it free.</h2>
+    <p class="sub">No enterprise edition, no licence key. The features other products sell separately are in the same Apache-2.0 repository.</p>
+
+    <div class="grid">
+      <article class="card wide">
+        <div class="ico"><svg class="ic"><use href="#i-search"/></svg></div>
+        <h3>Search that keeps up</h3>
+        <p>Literal, regexp, keyword (BM25) and structural search over a trigram index of its own. After a push, only changed paths are re-indexed, so new commits are searchable within seconds. Any branch, tag or commit that isn't indexed is searched straight from git. Results stream as they're found.</p>
+        <ul class="tags"><li>regexp</li><li>BM25</li><li>structural</li><li>any revision</li><li>search jobs → CSV</li></ul>
+      </article>
+      <article class="card">
+        <div class="ico"><svg class="ic"><use href="#i-nav"/></svg></div>
+        <h3>Precise code navigation</h3>
+        <p>Go to definition, find references and implementations from SCIP indexes, across repositories and package versions. Search-based results fill in where there's no index.</p>
+      </article>
+      <article class="card">
+        <div class="ico"><svg class="ic"><use href="#i-agent"/></svg></div>
+        <h3>Built for AI agents</h3>
+        <p>A built-in MCP server lets coding agents search, read files, jump to definitions and read history, with the caller's permissions, in output sized for a model's context.</p>
+      </article>
+      <article class="card">
+        <div class="ico"><svg class="ic"><use href="#i-shield"/></svg></div>
+        <h3>SSO, SCIM, RBAC, audit</h3>
+        <p>OAuth, OpenID Connect or an auth proxy; SCIM provisioning; roles; an audit log. Repository permissions are synced from the code host and enforced on every read.</p>
+      </article>
+      <article class="card">
+        <div class="ico"><svg class="ic"><use href="#i-bulk"/></svg></div>
+        <h3>Bulk changes</h3>
+        <p>One YAML spec changes many repositories, then opens and tracks the GitLab merge requests.</p>
+      </article>
+      <article class="card">
+        <div class="ico"><svg class="ic"><use href="#i-trend"/></svg></div>
+        <h3>Trends and watches</h3>
+        <p>Chart how code changes over time, such as how many files still use a deprecated API, and get notified when new commits match a search.</p>
+      </article>
+      <article class="card">
+        <div class="ico"><svg class="ic"><use href="#i-hosts"/></svg></div>
+        <h3>Every code host at once</h3>
+        <p>gitlab.com, self-managed GitLab, GitHub and Gitea side by side; one search covers them all, each with its own permissions.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap split block">
+    <div>
+      <p class="eyebrow">Code intelligence</p>
+      <h2>From a search hit to every caller in two clicks</h2>
+      <p class="sub">Hover any symbol for its signature and docs. Definitions and references open in a panel below the code, across every repository the index knows about.</p>
+      <ul class="checks">
+        <li>SCIP indexes uploaded from CI or built by auto-indexing</li>
+        <li>Cross-repository and cross-version references</li>
+        <li>Blame, history, compare and code ownership too</li>
+      </ul>
+    </div>
+    <figure class="shot">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/readme-codenav-dark.webp" />
+        <img src="assets/readme-codenav-light.webp" width="2560" height="1520" loading="lazy" alt="Code navigation in tokio: the hover card for asyncify, and its definition and 55 references in the panel below" />
+      </picture>
+    </figure>
+  </section>
+
+  <section class="wrap block agents" id="agents">
+    <div class="agents-text">
+      <p class="eyebrow">AI agents</p>
+      <h2>Your agents read the answer, not the repository</h2>
+      <p class="sub">Connected over MCP, an agent reads only the lines that answer its question: 5× to 70× fewer tokens than cloning and grepping. Any agent that speaks MCP can connect with just the server URL and a sign-in or access token, and every tool runs with that user's repository permissions.</p>
+      <ul class="tags"><li>search</li><li>read_file</li><li>find_symbols</li><li>go_to_definition</li><li>find_references</li><li>find_implementations</li><li>commit_log</li><li>compare_revisions</li><li>blame</li></ul>
+    </div>
+  </section>
+
+  <section class="wrap block">
+    <p class="eyebrow">Operations</p>
+    <h2>Ready for production</h2>
+    <div class="grid three">
+      <div class="mini"><svg class="ic"><use href="#i-bolt"/></svg><div><b>Few moving parts</b><span>One binary and PostgreSQL 16+. Nothing else to run, back up or upgrade.</span></div></div>
+      <div class="mini"><svg class="ic"><use href="#i-hosts"/></svg><div><b>Scales out</b><span>Repository storage spreads across repo nodes, added or removed without downtime.</span></div></div>
+      <div class="mini"><svg class="ic"><use href="#i-shield"/></svg><div><b>No telemetry</b><span>Nothing is sent to a vendor cloud. Usage analytics stay on the instance.</span></div></div>
+      <div class="mini"><svg class="ic"><use href="#i-gauge"/></svg><div><b>Observable</b><span>Grafana dashboards and Prometheus alerts included.</span></div></div>
+      <div class="mini"><svg class="ic"><use href="#i-nav"/></svg><div><b>Configuration as code</b><span>Sign-in, code hosts and admins from files in git; secrets from the environment.</span></div></div>
+      <div class="mini"><svg class="ic"><use href="#i-trend"/></svg><div><b>Tested upgrades</b><span>Every release is tested by upgrading from the previous one.</span></div></div>
+    </div>
+  </section>
+
+  <section class="wrap block install" id="install">
+    <p class="eyebrow">Install</p>
+    <h2>Running in about a minute</h2>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="compose">Docker Compose</button>
+      <button role="tab" aria-selected="false" data-tab="helm">Kubernetes (Helm)</button>
+    </div>
+    <div class="panel" data-panel="compose">
+      <div class="term">
+        <div class="term-bar"><i></i><i></i><i></i><span>one host</span><button class="copy" aria-label="Copy"><svg class="ic"><use href="#i-copy"/></svg></button></div>
+        <pre><code>curl -fsSL https://github.com/sourcegull/sourcegull/releases/latest/download/sourcegull-compose.tar.gz | tar -xz
+cd sourcegull-compose
+echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" &gt; .env
+docker compose up -d</code></pre>
+      </div>
+      <p class="note">Open <code>http://localhost:7080</code>. The first user to sign up becomes the site admin; add a code host under <b>Site admin → Code host connections</b>.</p>
+    </div>
+    <div class="panel" data-panel="helm" hidden>
+      <div class="term">
+        <div class="term-bar"><i></i><i></i><i></i><span>kubernetes</span><button class="copy" aria-label="Copy"><svg class="ic"><use href="#i-copy"/></svg></button></div>
+        <pre><code>helm install sourcegull oci://ghcr.io/sourcegull/charts/sourcegull \
+  --set externalURL=https://sourcegull.example.com</code></pre>
+      </div>
+      <p class="note">Then open your <code>externalURL</code>; the first user to sign up becomes the site admin.</p>
+    </div>
+
+    <h3 class="guides-title">Installing for production</h3>
+    <div class="guides">
+      <a class="guide" href="https://github.com/sourcegull/sourcegull/blob/main/docs/install.md#docker-compose">
+        <b>Docker Compose guide</b>
+        <span>One host: the production layout with one container per role, upgrades, backups and monitoring.</span>
+        <em>Read the guide →</em>
+      </a>
+      <a class="guide" href="https://github.com/sourcegull/sourcegull/blob/main/docs/install.md#kubernetes-helm">
+        <b>Kubernetes (Helm) guide</b>
+        <span>Larger installs and several repo nodes: size presets, an external PostgreSQL and every chart value.</span>
+        <em>Read the guide →</em>
+      </a>
+    </div>
+  </section>
+
+  <section class="wrap cta">
+    <h2>Free for good.</h2>
+    <p>Sourcegull is Apache-2.0. There is no paid tier, and there will not be one.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/sourcegull/sourcegull"><svg class="ic"><use href="#i-github"/></svg>Star on GitHub</a>
+      <a class="btn" href="https://github.com/sourcegull/sourcegull/tree/main/docs">Read the docs</a>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="wrap foot-inner">
+      <a class="brand" href="#top"><img src="favicon.png" width="22" height="22" alt="" /><span>Source<b>gull</b></span></a>
+      <nav aria-label="Links">
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+        <a href="https://github.com/sourcegull/sourcegull/tree/main/docs">Docs</a>
+        <a href="https://github.com/sourcegull/sourcegull/releases">Releases</a>
+        <a href="https://github.com/sourcegull/sourcegull/blob/main/docs/mcp.md">MCP</a>
+        <a href="https://artifacthub.io/packages/search?ts_query_web=sourcegull">Artifact Hub</a>
+        <a href="https://github.com/sourcegull/sourcegull/blob/main/LICENSE-APACHE">Apache-2.0</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('[role=tab]').forEach(function (t) {
+      t.addEventListener('click', function () {
+        document.querySelectorAll('[role=tab]').forEach(function (x) { x.setAttribute('aria-selected', x === t); });
+        document.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== t.dataset.tab; });
+      });
+    });
+    document.querySelectorAll('.copy').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var code = b.closest('.term').querySelector('code').innerText;
+        navigator.clipboard.writeText(code).then(function () {
+          b.classList.add('done'); setTimeout(function () { b.classList.remove('done'); }, 1200);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
