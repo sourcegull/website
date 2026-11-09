@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.8.2</b></p>
+      <p class="version">Version <b>v0.8.3</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/" aria-current="page">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -52,7 +52,7 @@ the PrometheusRule (<code>metrics.prometheusRule.enabled=true</code>) and the da
 the Grafana sidecar (<code>metrics.grafanaDashboards.enabled=true</code>). See the
 <a href="/docs/helm/">chart README</a>.</p>
 <h2 id="docker-compose"><a class="anchor" href="#docker-compose" aria-hidden="true">#</a>Docker Compose</h2>
-<p><a href="https://github.com/sourcegull/sourcegull/blob/v0.8.2/deploy/docker/prometheus/prometheus.yml" rel="noopener"><code>prometheus/prometheus.yml</code></a> in the bundle is
+<p><a href="https://github.com/sourcegull/sourcegull/blob/v0.8.3/deploy/docker/prometheus/prometheus.yml" rel="noopener"><code>prometheus/prometheus.yml</code></a> in the bundle is
 an example scrape config for both Compose files.</p>
 <p>The internal listener is not published: it also serves the blob API of a process running the
 <code>blob</code> role (<code>compose.yaml</code>, and the <code>blob</code> service of <code>compose.production.yaml</code>), which has
