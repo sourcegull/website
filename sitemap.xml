@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://sourcegull.org/</loc></url>
+  <url><loc>https://sourcegull.org/docs/</loc></url>
+  <url><loc>https://sourcegull.org/docs/install/</loc></url>
+  <url><loc>https://sourcegull.org/docs/configuration/</loc></url>
+  <url><loc>https://sourcegull.org/docs/permissions/</loc></url>
+  <url><loc>https://sourcegull.org/docs/search/</loc></url>
+  <url><loc>https://sourcegull.org/docs/code-navigation/</loc></url>
+  <url><loc>https://sourcegull.org/docs/mcp/</loc></url>
+  <url><loc>https://sourcegull.org/docs/bulk-changes/</loc></url>
+  <url><loc>https://sourcegull.org/docs/features/</loc></url>
+  <url><loc>https://sourcegull.org/docs/upgrade-compose/</loc></url>
+  <url><loc>https://sourcegull.org/docs/helm/</loc></url>
+  <url><loc>https://sourcegull.org/docs/helm-sizing/</loc></url>
+  <url><loc>https://sourcegull.org/docs/observability/</loc></url>
+  <url><loc>https://sourcegull.org/docs/observability/dashboards/</loc></url>
+  <url><loc>https://sourcegull.org/docs/observability/alerts/</loc></url>
+  <url><loc>https://sourcegull.org/docs/architecture/</loc></url>
+  <url><loc>https://sourcegull.org/docs/development/</loc></url>
+  <url><loc>https://sourcegull.org/docs/roadmap/</loc></url>
+</urlset>
