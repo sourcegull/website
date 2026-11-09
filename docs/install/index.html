@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.8.1</b></p>
+      <p class="version">Version <b>v0.8.2</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/" aria-current="page">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -165,7 +165,7 @@ of the extra files above. To add repo nodes, copy the <code>repo-0</code> servic
 <code>oci://ghcr.io/sourcegull/charts/sourcegull</code> (Helm 3.8 or later), deploys <code>web</code>, the repo
 nodes as a StatefulSet, <code>worker</code>, the blob store, optional executors (Kubernetes runtime: one
 Job per auto-indexing job, one per bulk change step), a migration hook and optional monitoring
-objects. It runs <code>ghcr.io/sourcegull/sourcegull</code> at the chart's <code>appVersion</code> (<code>0.8.1</code>); set
+objects. It runs <code>ghcr.io/sourcegull/sourcegull</code> at the chart's <code>appVersion</code> (<code>0.8.2</code>); set
 <code>image.registry</code> and <code>image.repository</code> for a mirror or an <a href="#building-from-source">image of your own</a>.
 With no other values the chart runs the bundled database and generates the encryption keys,
 which is enough to evaluate Sourcegull. The size presets come with the chart:</p>
