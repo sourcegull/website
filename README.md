@@ -1,8 +1,14 @@
 # sourcegull/website
 
-The one-page project site: plain `index.html` and `style.css`, no build. Screenshots and the
-wordmark are copies of `docs/assets/` in sourcegull/sourcegull; the icons come from `ui/static/`.
+The project site at https://sourcegull.org: a hand-written landing page (`index.html`,
+`style.css`) and documentation pages generated from the Markdown in sourcegull/sourcegull.
+
+- `docs/` is generated; don't edit it. Rebuild it with `tools/build-docs.sh [ref]` (Docker;
+  default ref is the latest release tag), after each release or docs fix. Pages, their order
+  and their sidebar groups are listed in `NAV` in `tools/build_docs.py`.
+- `assets/docs.css` and `assets/docs.js` style the docs pages and run their search box.
+- Screenshots and the wordmark are copies of `docs/assets/` in sourcegull/sourcegull; the icons
+  come from `ui/static/`.
 
 Preview: `python3 -m http.server 8090`, then open http://localhost:8090.
-
-To publish with GitHub Pages, add a `CNAME` file holding the domain once it is chosen.
+GitHub Pages serves the `main` branch as is; `CNAME` holds the domain.

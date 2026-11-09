@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Install · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/" aria-current="page">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="install">Install</h1>
+<p>Sourcegull ships as one image, <code>ghcr.io/sourcegull/sourcegull</code>, which holds the <code>sourcegull</code> server
+binary and the <code>gull</code> command-line client, for linux/amd64 (for arm64,
+<a href="#building-from-source">build from source</a>). It runs with Docker Compose or on Kubernetes:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>For</th>
+<th>Database</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#docker-compose">Docker Compose</a></td>
+<td>trying Sourcegull, small teams, one host</td>
+<td>PostgreSQL service in the Compose file</td>
+</tr>
+<tr>
+<td><a href="#production-layout">Compose, production layout</a></td>
+<td>production on one host: a container per role</td>
+<td>PostgreSQL service in the Compose file</td>
+</tr>
+<tr>
+<td><a href="#kubernetes-helm">Kubernetes (Helm)</a></td>
+<td>production, larger installs, several repo nodes</td>
+<td>external, bundled or CloudNativePG</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every option needs only PostgreSQL 16 or newer (the bundled database is 18); there is no Redis
+or other service to run. Install from a <a href="https://github.com/sourcegull/sourcegull/releases" rel="noopener">release</a>:
+each one publishes the images, the Helm chart and a Compose bundle, and its notes give the
+versions.</p>
+<h2 id="release-artifacts"><a class="anchor" href="#release-artifacts" aria-hidden="true">#</a>Release artifacts</h2>
+<p>Each release publishes, signed by digest (images with an SBOM and build provenance):</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ghcr.io/sourcegull/sourcegull</code></td>
+<td>the server and <code>gull</code>; what Compose and the Helm chart run</td>
+</tr>
+<tr>
+<td><code>ghcr.io/sourcegull/gull</code></td>
+<td>only <code>gull</code> and git, for CI jobs (<a href="/docs/code-navigation/">SCIP uploads</a>)</td>
+</tr>
+<tr>
+<td><code>oci://ghcr.io/sourcegull/charts/sourcegull</code></td>
+<td>the <a href="#kubernetes-helm">Helm chart</a>, versioned on its own</td>
+</tr>
+<tr>
+<td><code>sourcegull-compose.tar.gz</code> (release asset)</td>
+<td>the <a href="#docker-compose">Docker Compose</a> files: <code>compose.yaml</code>, <code>compose.production.yaml</code>, extras, <code>.env.example</code>, configuration examples, alerting rules and dashboards</td>
+</tr>
+</tbody>
+</table></div>
+<p>Image tags: <code>X.Y.Z</code>, <code>X.Y</code> (the newest patch release) and <code>latest</code>. The Compose bundle and the
+chart default to the image of their release, so neither needs a build. The release notes show how to check a
+signature with <code>cosign verify</code>.</p>
+<h3 id="building-from-source"><a class="anchor" href="#building-from-source" aria-hidden="true">#</a>Building from source</h3>
+<p>To run a change of your own, build the image from a checkout of this repository and point
+Compose (<code>SOURCEGULL_IMAGE</code>, <code>SOURCEGULL_VERSION</code> in <code>.env</code>) or the chart (<code>image.registry</code>,
+<code>image.repository</code>, <code>image.tag</code>) at it:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>docker<span class="w"> </span>buildx<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>deploy/docker/Dockerfile<span class="w"> </span>-t<span class="w"> </span>registry.example.com/sourcegull/sourcegull:dev<span class="w"> </span>--load<span class="w"> </span>.
+</code></pre></div>
+<p>The build compiles the web UI and embeds it in the binary. <code>--platform linux/arm64</code> builds an arm64
+image (cross-compiled, no emulation needed for the Rust build); <code>--target cli</code> builds the <code>gull</code> image.</p>
+<h2 id="docker-compose"><a class="anchor" href="#docker-compose" aria-hidden="true">#</a>Docker Compose</h2>
+<p>The Compose bundle runs PostgreSQL and one <code>sourcegull</code> container that runs every role
+(<code>sourcegull supervise</code>), with a read-only root file system. On first start it creates the
+encryption key file and applies the migrations. Download it from the latest release (the same
+files are in <code>deploy/docker/</code> of a checkout):</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://github.com/sourcegull/sourcegull/releases/latest/download/sourcegull-compose.tar.gz<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>-xz
+<span class="nb">cd</span><span class="w"> </span>sourcegull-compose
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;POSTGRES_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">24</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>.env
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w">            </span><span class="c1"># pulls ghcr.io/sourcegull/sourcegull</span>
+</code></pre></div>
+<p>Open <a href="http://localhost:7080" rel="noopener">http://localhost:7080</a> (<a href="#first-sign-in">first sign-in</a>). Settings go in <code>.env</code>: every
+<code>SOURCEGULL_*</code> variable there reaches the server (<a href="/docs/configuration/">configuration</a>), and
+<code>.env.example</code> lists the common ones (external URL, port, Postgres tuning, S3, executors).</p>
+<p>Back up the key file together with the database: without it, the stored code host tokens and
+other secrets cannot be decrypted. It lives in the <code>sourcegull-data</code> volume:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>docker<span class="w"> </span>compose<span class="w"> </span>cp<span class="w"> </span>sourcegull:/var/opt/sourcegull/keys<span class="w"> </span>./sourcegull-keys.bak
+</code></pre></div>
+<p>The keys can also be passed in <code>SOURCEGULL_KEYS</code> instead of a file
+(<a href="/docs/configuration/#keys-in-the-environment">configuration</a>).</p>
+<p>To configure the instance from files instead of the UI, put the site configuration, global
+settings and resources files in <code>config/</code> and name them in <code>.env</code>
+(<a href="/docs/configuration/#configuration-as-code">configuration as code</a>);
+<code>config/resources.example.jsonc</code> is a starting point.</p>
+<p>Optional extra Compose files, added with <code>-f</code> (or listed in <code>COMPOSE_FILE</code> in <code>.env</code>, separated
+by <code>:</code>):</p>
+<ul>
+<li><code>docker compose -f compose.yaml -f compose.executor.yaml up -d</code> starts an
+<a href="/docs/architecture/#executors">executor</a> for auto-indexing and server-side bulk changes. It uses
+the host's Docker socket; set <code>SOURCEGULL_EXECUTOR_TOKEN</code> in <code>.env</code> to the same value as
+<code>executors.accessToken</code> in the site configuration, and <code>DOCKER_GID</code> to the group that owns
+<code>/var/run/docker.sock</code>.</li>
+<li><code>docker compose -f compose.yaml -f compose.minio.yaml up -d</code> starts MinIO, for
+<a href="#s3-blob-storage">S3 blob storage</a>.</li>
+</ul>
+<p>Monitoring: point your Prometheus and Grafana at the instance and load the rules and dashboards
+from the bundle (<a href="/docs/observability/">monitoring</a>).</p>
+<p>Upgrades, multi-version upgrades, backups and key rotation are described in
+<a href="/docs/upgrade-compose/">upgrade.md</a>, which the bundle includes.</p>
+<h3 id="production-layout"><a class="anchor" href="#production-layout" aria-hidden="true">#</a>Production layout</h3>
+<p><code>compose.production.yaml</code> runs each role in its own container: a one-shot <code>migrate</code> service,
+<code>web</code>, <code>worker</code>, one repo node (<code>repo-0</code>) and a <code>blob</code> store, each with its own volume and memory
+limit, and an encryption key file you create, mounted as a Compose secret. Use it to give the
+roles their own limits, to restart one without the others, or to run more repo nodes than one:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w">            </span><span class="c1"># set POSTGRES_PASSWORD, uncomment COMPOSE_FILE=compose.production.yaml</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span>secrets<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;k1:%s\n&#39;</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>secrets/encryption-keys
+chmod<span class="w"> </span><span class="m">0644</span><span class="w"> </span>secrets/encryption-keys<span class="w">   </span><span class="c1"># read by UID 10001 in the containers</span>
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<p>The <code>executors</code> and <code>minio</code> profiles (<code>docker compose --profile executors up -d</code>) take the place
+of the extra files above. To add repo nodes, copy the <code>repo-0</code> service and its volume as
+<code>repo-1</code>, … and list every node in <code>SOURCEGULL_REPO_NODES</code> (in <code>.env</code>), then
+<code>docker compose up -d</code>. Repositories move to new nodes in the background without downtime
+(<a href="/docs/architecture/#repo-nodes-and-rebalancing">rebalancing</a>). For several hosts, use
+<a href="#kubernetes-helm">Helm</a>.</p>
+<h2 id="kubernetes-helm"><a class="anchor" href="#kubernetes-helm" aria-hidden="true">#</a>Kubernetes (Helm)</h2>
+<p>The <a href="/docs/helm/">chart</a>, published as
+<code>oci://ghcr.io/sourcegull/charts/sourcegull</code> (Helm 3.8 or later), deploys <code>web</code>, the repo
+nodes as a StatefulSet, <code>worker</code>, the blob store, optional executors (Kubernetes runtime: one
+Job per auto-indexing job, one per bulk change step), a migration hook and optional monitoring
+objects. It runs <code>ghcr.io/sourcegull/sourcegull</code> at the chart's <code>appVersion</code> (<code>0.8.0</code>); set
+<code>image.registry</code> and <code>image.repository</code> for a mirror or an <a href="#building-from-source">image of your own</a>.
+With no other values the chart runs the bundled database and generates the encryption keys,
+which is enough to evaluate Sourcegull. The size presets come with the chart:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>helm<span class="w"> </span>pull<span class="w"> </span>oci://ghcr.io/sourcegull/charts/sourcegull<span class="w"> </span>--untar<span class="w">   </span><span class="c1"># the chart, with examples/</span>
+helm<span class="w"> </span>install<span class="w"> </span>sourcegull<span class="w"> </span>oci://ghcr.io/sourcegull/charts/sourcegull<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-f<span class="w"> </span>sourcegull/examples/small.yaml<span class="w"> </span>--set<span class="w"> </span><span class="nv">externalURL</span><span class="o">=</span>https://sourcegull.example.com
+helm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>sourcegull
+</code></pre></div>
+<p><code>--version</code> pins a chart version (the release notes give it); from a checkout,
+<code>deploy/helm/sourcegull</code> works as the chart too.</p>
+<p>For production, use an external PostgreSQL (16 or newer, 18 recommended) and your own Secret:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>sourcegull-secrets<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--from-literal<span class="o">=</span>database-url<span class="o">=</span><span class="s1">&#39;postgres://sourcegull:...@db.example.com:5432/sourcegull&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--from-literal<span class="o">=</span>encryption-keys<span class="o">=</span><span class="s2">&quot;k1:</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">&quot;</span>
+helm<span class="w"> </span>install<span class="w"> </span>sourcegull<span class="w"> </span>oci://ghcr.io/sourcegull/charts/sourcegull<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-f<span class="w"> </span>sourcegull/examples/large.yaml<span class="w"> </span>--set<span class="w"> </span><span class="nv">externalURL</span><span class="o">=</span>https://sourcegull.example.com
+</code></pre></div>
+<ul>
+<li>
+<p>Database: <code>postgresql.mode</code> is <code>bundled</code> (default; one PostgreSQL StatefulSet, for evaluation
+and small installs), <code>cnpg</code> (a CloudNativePG cluster) or <code>external</code> (with <code>existingSecret</code> or
+<code>externalDatabase.existingSecret</code>). For a replicated database, list every host in the URL
+(<code>postgres://user:pass@db1:5432,db2:5432/sourcegull</code>); Sourcegull follows the primary
+(<a href="/docs/configuration/#replicated-databases">Replicated databases</a>).</p>
+</li>
+<li>
+<p>Sizing: <a href="/docs/helm-sizing/">SIZING.md</a> and the small, medium and large presets
+in <code>examples/</code>.</p>
+</li>
+<li>
+<p>Workers can autoscale on job queue depth with KEDA (<code>worker.autoscaling.keda.enabled</code>).</p>
+</li>
+<li>
+<p>Singleton background tasks are leader-elected with Kubernetes <code>Lease</code> objects (the chart
+grants the RBAC).</p>
+</li>
+<li>
+<p><code>metrics.*</code> renders a ServiceMonitor, a PrometheusRule and Grafana dashboard ConfigMaps.</p>
+</li>
+<li>
+<p><code>config.siteConfig</code>, <code>config.globalSettings</code> and <code>config.resources</code> configure the instance
+from the values file: sign-in, code host connections, site admins and the rest, with secrets
+referenced from <code>extraEnvVars</code> (<a href="/docs/helm/#configuration-as-code">chart README</a>).
+With these set, an install clones and indexes its repositories with no clicks.</p>
+</li>
+<li>
+<p><code>encryptionKeys.source</code> passes the keys as a mounted file (default), as <code>SOURCEGULL_KEYS</code> from the
+Secret, or leaves <code>SOURCEGULL_KEYS</code> to a secret injector.</p>
+</li>
+<li>
+<p>Every component takes the same pod settings: <code>command</code>, probes, security contexts, scheduling
+presets, <code>priorityClassName</code>, <code>extraEnvVars</code>, <code>extraVolumes</code>, <code>sidecars</code>, <code>initContainers</code> and
+the rest (<a href="/docs/helm/#pod-settings">chart README</a>).</p>
+</li>
+</ul>
+<p>Every value is documented in <code>values.yaml</code> and validated by <code>values.schema.json</code>.</p>
+<h2 id="s3-blob-storage"><a class="anchor" href="#s3-blob-storage" aria-hidden="true">#</a>S3 blob storage</h2>
+<p>The blob store holds SCIP uploads, code graph files and search job results. By default it is
+the <code>blob</code> role's directory (<code>&lt;data dir&gt;/blobs</code>). Any S3-compatible bucket (MinIO, Garage,
+SeaweedFS, Ceph RGW, Amazon S3) can be used instead:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nv">SOURCEGULL_BLOB_STORE</span><span class="o">=</span>s3://sourcegull-blobs/prod<span class="w">     </span><span class="c1"># s3://&lt;bucket&gt;[/&lt;prefix&gt;]</span>
+<span class="nv">SOURCEGULL_S3_ENDPOINT</span><span class="o">=</span>http://minio:9000<span class="w">         </span><span class="c1"># empty: Amazon S3</span>
+<span class="nv">SOURCEGULL_S3_REGION</span><span class="o">=</span>us-east-1
+<span class="nv">SOURCEGULL_S3_ACCESS_KEY_ID</span><span class="o">=</span>...
+<span class="nv">SOURCEGULL_S3_SECRET_ACCESS_KEY</span><span class="o">=</span>...
+</code></pre></div>
+<p>Other settings: <code>SOURCEGULL_S3_PATH_STYLE</code> (default <code>true</code>; <code>false</code> for virtual-hosted buckets),
+<code>SOURCEGULL_S3_SESSION_TOKEN</code>, <code>SOURCEGULL_S3_CA_CERT</code> (PEM file of a private CA),
+<code>SOURCEGULL_S3_INSECURE_SKIP_VERIFY</code>, <code>SOURCEGULL_S3_PART_SIZE</code> (multipart part size, default 8 MiB) and
+<code>SOURCEGULL_S3_CREATE_BUCKET</code> (create the bucket at startup). The standard <code>AWS_*</code> variables are read
+when the <code>SOURCEGULL_S3_*</code> ones are not set. Credentials are never taken from the URL.</p>
+<ul>
+<li>Compose: set these in <code>.env</code>. With <code>compose.production.yaml</code>, also stop the blob service:
+<code>docker compose up -d --scale blob=0</code>.</li>
+<li>Helm: <code>blobstore.mode=s3</code> with <code>blobstore.s3.*</code> (bucket, endpoint, and a Secret with the key
+pair in <code>blobstore.s3.existingSecret</code>).</li>
+</ul>
+<h2 id="first-sign-in"><a class="anchor" href="#first-sign-in" aria-hidden="true">#</a>First sign-in</h2>
+<p>Open the external URL (<code>http://localhost:7080</code> by default). The first account to sign up
+becomes the site admin; after that, sign-up follows the site configuration
+(<code>&quot;allowSignup&quot;: false</code> on the built-in provider by default, so the admin
+<a href="/docs/permissions/#creating-users">creates accounts</a> or users
+<a href="/docs/permissions/#access-requests">request access</a>).</p>
+<p>With <code>siteAdmins</code> in the <a href="/docs/configuration/#resources-file">resources file</a>, the users with those
+verified emails are site admins instead, and no other first user is. The first page is then the
+sign-in page, and a declared admin signs in through a provider that verifies their email (such
+as GitLab); a password sign-up cannot, because its email starts unverified. The resources file
+is refused when no sign-in method could verify a declared admin's email (see
+<a href="/docs/configuration/#resources-file">site admins</a>).</p>
+<p>Set <code>externalURL</code> in <strong>Site admin → Site configuration</strong> (or <code>SOURCEGULL_EXTERNAL_URL</code>) before you
+configure OAuth sign-in or webhooks: callback and webhook URLs are built from it.</p>
+<p>Until you hide it, <strong>Site admin → Overview</strong> shows a setup checklist: set the external URL,
+connect a code host, add a sign-in provider, set up email and invite people. Each open step
+links to the page or settings section that completes it. After you save a code host connection,
+its page lists <strong>Next steps</strong> for that host: a sign-in provider for the same URL, and an
+<a href="/docs/permissions/#repository-permissions"><code>authorization</code> block</a> for its repository permissions.</p>
+<h2 id="connecting-gitlab"><a class="anchor" href="#connecting-gitlab" aria-hidden="true">#</a>Connecting GitLab</h2>
+<p>Add a connection under <strong>Site admin → Code host connections</strong>. The <strong>Settings</strong> tab is a form:</p>
+<ul>
+<li><strong>GitLab URL</strong> and <strong>Token</strong>. <em>How to create the token</em> links to the token page of your
+GitLab with the name and scope filled in: <code>read_api</code> for search, navigation and
+permissions, <code>api</code> if the connection is also used for bulk changes or webhook registration.
+A group or project access token works too.</li>
+<li><strong>Projects to mirror</strong>: every project the token's user is a member of, selected groups
+(with subgroups) and projects, or custom GitLab API queries. Paths and URLs can be pasted.
+<strong>Index archived projects</strong>, on for new connections, mirrors archived projects too; search
+<a href="/docs/search/#archived-repositories">leaves them out</a> unless asked. A connection saved earlier, or
+a file-managed one, keeps <code>&amp;archived=no</code> in its <code>projectQuery</code> until you tick the box or remove
+it from the query. GitLab reports a newly archived project at the next full listing, within
+an hour. <strong>Exclusions</strong> skip projects by path, by regular expression or when empty.</li>
+<li><strong>Repository permissions</strong>: every Sourcegull user, or GitLab permissions (see
+<a href="/docs/permissions/">permissions</a>).</li>
+<li><strong>Advanced</strong>: clone over HTTPS or SSH, request budget, repository name pattern, internal
+projects as public, webhook auto-registration, TLS certificate.</li>
+</ul>
+<p><strong>Test connection</strong> checks the URL and token before you save and shows the GitLab user the
+token belongs to and its scopes. <strong>Edit as JSON</strong> shows the same configuration as JSON with
+comments, validated as you type; the form changes only the values it touches, and settings it
+doesn't show (listed under the form) stay as they are.</p>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://gitlab.example.com&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="c1">// read_api is enough for search and navigation; bulk changes need api.</span>
+<span class="w">  </span><span class="s2">&quot;token&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;glpat-...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="c1">// Which projects to mirror: GitLab API list paths, explicit projects, or both.</span>
+<span class="w">  </span><span class="s2">&quot;projectQuery&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;groups/acme/projects?include_subgroups=true&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;projects&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;platform/api&quot;</span><span class="w"> </span><span class="p">}],</span>
+<span class="w">  </span><span class="s2">&quot;exclude&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^acme/archive/&quot;</span><span class="w"> </span><span class="p">}],</span>
+<span class="w">  </span><span class="c1">// Apply GitLab permissions to Sourcegull users (see permissions.md).</span>
+<span class="w">  </span><span class="s2">&quot;authorization&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;identityProvider&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;oauth&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="github-app-authentication"><a class="anchor" href="#github-app-authentication" aria-hidden="true">#</a>GitHub App authentication</h3>
+<p>Instead of <code>token</code>, a connection can authenticate as a GitHub App installation (set exactly one
+of <code>token</code> and <code>githubApp</code>). Installation tokens are not tied to a user account, have their own,
+higher rate limits, and are what repository permissions need to list collaborators without an
+admin's personal token.</p>
+<ol>
+<li>Register a GitHub App (<strong>Settings → Developer settings → GitHub Apps → New GitHub App</strong>, on
+your account or the organization). It needs no callback or webhook URL. Permissions:
+repository <strong>Contents</strong> and <strong>Metadata</strong> read-only; for <a href="/docs/permissions/#github-repository-permissions">repository
+permissions</a>, also organization <strong>Members</strong>
+read-only.</li>
+<li>Note the <strong>App ID</strong> and generate a <strong>private key</strong> (a <code>.pem</code> file).</li>
+<li>Install the App on the organization or account, for all repositories or selected ones. The
+<strong>installation ID</strong> is the number at the end of the installation's settings URL
+(<code>…/settings/installations/12345678</code>).</li>
+</ol>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://github.com&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;githubApp&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="s2">&quot;appID&quot;</span><span class="o">:</span><span class="w"> </span><span class="mf">123456</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">&quot;installationID&quot;</span><span class="o">:</span><span class="w"> </span><span class="mf">12345678</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// The PEM text, or a file reference in a configuration file.</span>
+<span class="w">    </span><span class="s2">&quot;privateKey&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;${file:/run/secrets/github-app.pem}&quot;</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="c1">// With a GitHub App, &quot;affiliated&quot; lists every repository of the installation.</span>
+<span class="w">  </span><span class="s2">&quot;repositoryQuery&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;affiliated&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;rateLimit&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;requestsPerHour&quot;</span><span class="o">:</span><span class="w"> </span><span class="mf">15000</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Sourcegull signs a short-lived JWT with the private key and exchanges it for an installation token
+(valid for an hour). The token is used for every API request and for HTTPS clones and fetches
+(as user <code>x-access-token</code>), cached per connection and replaced five minutes before it expires
+or when GitHub rejects it; one request mints while others wait for its token. The private key
+is redacted like the token wherever the configuration is shown, and <code>${file:…}</code> and <code>${env:…}</code>
+references work for it in <a href="/docs/configuration/#configuration-as-code">configuration files</a>.
+<strong>Test connection</strong> shows the App and installation instead of a user. An installation's rate
+limit is at least 5,000 requests per hour (15,000 on GitHub Enterprise Cloud); raise
+<code>rateLimit.requestsPerHour</code> to match.</p>
+<p>Other keys: <code>repositoryPathPattern</code> (default <code>{host}/{pathWithNamespace}</code>),
+<code>nameTransformations</code>, <code>gitURLType</code> (<code>http</code> or <code>ssh</code>, with <code>SOURCEGULL_REPO_SSH_KEY</code> on the repo
+nodes), <code>certificate</code> (PEM of an internal CA), <code>rateLimit</code> (<code>requestsPerHour</code>, shared by every
+Sourcegull process), <code>markInternalReposAsPublic</code>, <code>webhooks</code>, <code>webhooks.autoRegister</code> and
+<code>systemHook</code>.</p>
+<h3 id="oauth-token"><a class="anchor" href="#oauth-token" aria-hidden="true">#</a>OAuth token</h3>
+<p>Instead of a personal access token, a connection can use a GitLab OAuth access token issued
+by the OAuth application of a GitLab entry in <code>auth.providers</code> for the same URL (see
+<a href="/docs/permissions/#gitlab-oauth">permissions</a>):</p>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://gitlab.example.com&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;token&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&lt;access token&gt;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;token.type&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;oauth&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;token.oauth.refresh&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&lt;refresh token&gt;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="c1">// When the access token expires, in Unix seconds (created_at + expires_in).</span>
+<span class="w">  </span><span class="s2">&quot;token.oauth.expiry&quot;</span><span class="o">:</span><span class="w"> </span><span class="mf">1767225600</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Use this only when your GitLab doesn't allow access tokens. To get the tokens (the connection
+form shows the same steps with the link and command filled in):</p>
+<ol>
+<li>
+<p>Sign in to GitLab as the user whose access Sourcegull should have.</p>
+</li>
+<li>
+<p>Edit the sign-in OAuth application: add <code>http://localhost/</code> as another redirect URI and tick
+<code>read_api</code> (or <code>api</code>, for bulk changes and webhook registration).</p>
+</li>
+<li>
+<p>Open <code>&lt;GitLab URL&gt;/oauth/authorize?client_id=&lt;application id&gt;&amp;redirect_uri=http%3A%2F%2Flocalhost%2F&amp;response_type=code&amp;scope=read_api</code>
+and click <strong>Authorize</strong>. The browser goes to <code>http://localhost/?code=…</code>, which doesn't load;
+copy the <code>code</code> from the address bar (valid for ten minutes).</p>
+</li>
+<li>
+<p>Exchange it:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>curl<span class="w"> </span>-s<span class="w"> </span>&lt;GitLab<span class="w"> </span>URL&gt;/oauth/token<span class="w"> </span>-d<span class="w"> </span><span class="nv">grant_type</span><span class="o">=</span>authorization_code<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="nv">client_id</span><span class="o">=</span>&lt;application<span class="w"> </span>id&gt;<span class="w"> </span>-d<span class="w"> </span><span class="nv">client_secret</span><span class="o">=</span><span class="s1">&#39;&lt;secret&gt;&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="nv">redirect_uri</span><span class="o">=</span>http://localhost/<span class="w"> </span>-d<span class="w"> </span><span class="nv">code</span><span class="o">=</span><span class="s1">&#39;&lt;code&gt;&#39;</span>
+</code></pre></div>
+</li>
+<li>
+<p>Put <code>access_token</code> into <code>token</code> and <code>refresh_token</code> into <code>token.oauth.refresh</code>.
+<code>token.oauth.expiry</code> is optional: without it, the token is refreshed when GitLab first
+rejects it.</p>
+</li>
+</ol>
+<p>GitLab OAuth access tokens expire after two hours. Sourcegull refreshes the token five minutes
+before <code>token.oauth.expiry</code>, and when GitLab answers 401, then retries the request once. The
+refresh uses the client ID and secret of the matching <code>auth.providers</code> entry (each entry for
+the URL is tried). GitLab replaces the refresh token on every refresh, so Sourcegull writes the new
+<code>token</code>, <code>token.oauth.refresh</code> and <code>token.oauth.expiry</code> back into the connection (other
+settings, comments and the sync state are kept) and every Sourcegull process picks them up. If
+GitLab rejects the refresh token (revoked, or already used), the connection's syncs fail with
+an error saying so; Sourcegull does not retry until you set a new <code>token</code> and
+<code>token.oauth.refresh</code>.</p>
+<p>Sourcegull lists the projects, then clones and indexes them; progress shows in the status icon in
+the top bar and under <strong>Site admin → Repositories</strong>. Repositories are fetched on a schedule;
+for updates within seconds, add a GitLab webhook (push and tag events, or a system hook on
+self-managed GitLab) pointing at the URL shown on the connection page, with one of the
+connection's <code>webhooks</code> secrets as its secret token.</p>
+<p>The connection page shows the webhook secret only masked (<code>…</code> and its last 4 characters), as
+the API does. <strong>Generate secret</strong> (or <strong>Regenerate secret</strong>) replaces the connection's
+<code>webhooks</code> secrets with a new random one and shows it once, with a copy button; set it on the
+code host's webhook then, because it is not shown again. Webhooks sent with the old secret are
+rejected from then on. This applies to GitHub and Gitea connections too.</p>
+<h3 id="registering-webhooks-automatically"><a class="anchor" href="#registering-webhooks-automatically" aria-hidden="true">#</a>Registering webhooks automatically</h3>
+<p>With <code>&quot;webhooks.autoRegister&quot;: true</code>, Sourcegull creates the webhook on every project the
+connection syncs, so you don't add them by hand:</p>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://gitlab.example.com&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;token&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;glpat-…&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;projectQuery&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;groups/acme/projects?include_subgroups=true&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;webhooks&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;secret&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;…&quot;</span><span class="w"> </span><span class="p">}],</span><span class="w">   </span><span class="c1">// or &quot;Generate secret&quot; on the connection page</span>
+<span class="w">  </span><span class="s2">&quot;webhooks.autoRegister&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</code></pre></div>
+<ul>
+<li>The token needs the <code>api</code> scope and the Maintainer role (or higher) on the projects. Projects
+where GitLab refuses (403) are listed as warnings in the connection's sync history; the rest
+of the sync is unaffected.</li>
+<li><code>externalURL</code> must be set in the site configuration to an address GitLab can reach. When it
+is unset or a local address (<code>localhost</code>, <code>127.0.0.1</code>), nothing is registered and the sync
+shows a warning.</li>
+<li>The hook points at the connection's webhook URL (shown on the connection page) with push,
+tag push, merge request and pipeline events, and the first <code>webhooks</code> secret as its secret
+token. Existing hooks to that URL are reused: one with other events, another host (after
+<code>externalURL</code> changed) or an old secret is updated, and duplicates are deleted.</li>
+<li>A full sync (hourly) checks every project's hooks; incremental syncs set up new projects.
+Each check is one API request per project, drawn from the connection's <code>rateLimit</code>.</li>
+<li>Regenerating the webhook secret starts a full sync that updates every hook with the new
+secret. Projects that leave the connection have their hook removed.</li>
+</ul>
+<p>For precise code navigation, see <a href="/docs/code-navigation/">code navigation</a>; for sign-in with GitLab
+accounts, see <a href="/docs/permissions/#gitlab-oauth">permissions</a>.</p>
+<h2 id="connecting-github"><a class="anchor" href="#connecting-github" aria-hidden="true">#</a>Connecting GitHub</h2>
+<p>Sourcegull mirrors repositories from github.com and GitHub Enterprise Server (3.10 or later). Under
+<strong>Site admin → Code host connections → Add connection</strong>, pick <strong>GitHub</strong>. The form has:</p>
+<ul>
+<li><strong>GitHub URL</strong> and <strong>Authentication</strong>: a <strong>personal access token</strong> or a <strong>GitHub App</strong>.
+<em>How to create the token</em> links to your instance's token pages. A classic token with the
+<code>repo</code> scope (no scope for public repositories only) reads the user's repositories and those
+of every organization the user belongs to. A fine-grained token (read-only <strong>Contents</strong> and
+<strong>Metadata</strong>) gives narrower access but reads the repositories of one resource owner only, a
+user or one organization; to mirror several owners with fine-grained tokens, add a
+connection per owner. For a GitHub App, see <a href="#github-app-authentication">below</a>.</li>
+<li><strong>Repositories to mirror</strong>: every repository the token's user owns, collaborates on or
+reaches through an organization (with a GitHub App, every repository of the installation);
+selected organizations and repositories; or repository search queries. The third option
+also takes organizations and repositories, and mirrors them together: for example the query
+<code>affiliated</code> and the organization <code>acme</code> mirror the token user's repositories and acme's.
+<strong>Exclusions</strong> skip repositories by name, by regular expression, archived repositories and
+forks.</li>
+<li><strong>Advanced</strong>: clone over HTTPS or SSH, request budget (5,000 per hour by default, GitHub's
+limit for a personal token), repository name pattern, TLS certificate.</li>
+</ul>
+<p><strong>Test connection</strong> shows the GitHub user the token belongs to and, for a classic token, its
+scopes. It also checks every organization, repository and search query of the connection the
+way a sync reads them, and fails when one does not exist, is a user account listed as an
+organization, cannot be read by the token or is not a valid search. It warns when a search
+query matches nothing, and when a fine-grained token is used to reach organizations.</p>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://github.com&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;token&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;ghp_...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="c1">// Every repository of these organizations that the token can read (organizations only;</span>
+<span class="w">  </span><span class="c1">// the token user&#39;s own repositories come from &quot;affiliated&quot;).</span>
+<span class="w">  </span><span class="s2">&quot;orgs&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;acme&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="c1">// Single repositories, as owner/name.</span>
+<span class="w">  </span><span class="s2">&quot;repos&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;other-org/tool&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="c1">// &quot;affiliated&quot;, &quot;none&quot;, &quot;public&quot; (GitHub Enterprise Server only) or a repository search</span>
+<span class="w">  </span><span class="c1">// such as &quot;org:acme topic:backend&quot; (at most 1,000 results per query).</span>
+<span class="w">  </span><span class="s2">&quot;repositoryQuery&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;none&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;exclude&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;archived&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;forks&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^acme/sandbox-&quot;</span><span class="w"> </span><span class="p">}]</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Other keys: <code>repositoryPathPattern</code> (default <code>{host}/{nameWithOwner}</code>), <code>nameTransformations</code>,
+<code>gitURLType</code> (<code>http</code> or <code>ssh</code>), <code>certificate</code>, <code>rateLimit</code> and <code>webhooks</code>. Every sync lists
+the connection's repositories in full; GitHub's rate limit headers (and secondary rate limits)
+pause the connection's requests until GitHub allows them again.</p>
+<p>For updates within seconds, add a webhook in the repository or organization settings on GitHub:
+the payload URL shown on the connection page, content type <code>application/json</code>, one of the
+connection's <code>webhooks</code> secrets as the secret, and the <strong>Pushes</strong> and <strong>Repositories</strong> events
+(with repository permissions, also <strong>Collaborator add, remove, or changed</strong>, <strong>Memberships</strong>,
+<strong>Organizations</strong> and <strong>Team adds</strong>).
+GitHub signs each delivery with the secret; Sourcegull rejects unsigned or wrongly signed ones.</p>
+<p><strong>Permissions:</strong> without an <code>authorization</code> block every Sourcegull user can read every repository
+of a GitHub connection, including private ones (the connection page and the form say so). With
+<code>&quot;authorization&quot;: {&quot;identityProvider&quot;: {&quot;type&quot;: &quot;oauth&quot;}}</code> (<strong>Repository permissions</strong> in the
+form), users who signed in with GitHub see the private repositories they can read on GitHub;
+see <a href="/docs/permissions/#github-repository-permissions">GitHub repository permissions</a>. Pull
+requests for bulk changes, SCIP uploads from GitHub Actions and team sync are GitLab-only for
+now; for sign-in with GitHub accounts, see <a href="/docs/permissions/#github-oauth">permissions</a>.</p>
+<h2 id="connecting-gitea"><a class="anchor" href="#connecting-gitea" aria-hidden="true">#</a>Connecting Gitea</h2>
+<p>Sourcegull mirrors repositories from Gitea 1.20 or later, self-hosted or gitea.com. Under <strong>Site
+admin → Code host connections → Add connection</strong>, pick <strong>Gitea</strong>. The form has:</p>
+<ul>
+<li><strong>Gitea URL</strong> (with its path when Gitea is served under one, e.g. <code>https://example.com/git</code>)
+and <strong>Token</strong>. <em>How to create the token</em> links to the instance's <strong>Settings → Applications</strong>:
+generate a token with read access to <code>repository</code>, <code>organization</code> and <code>user</code>.</li>
+<li><strong>Repositories to mirror</strong>: every repository the token's user owns, collaborates on or
+reaches through an organization; selected organizations and repositories; or repository
+searches. <strong>Exclusions</strong> skip repositories by name, by regular expression, archived
+repositories, forks and mirrors.</li>
+<li><strong>Advanced</strong>: clone over HTTPS or SSH, request budget (36,000 per hour by default; Gitea does
+not limit its API, but a proxy in front of it may), repository name pattern, TLS certificate.</li>
+</ul>
+<p><strong>Test connection</strong> shows the Gitea user the token belongs to, and warns when the instance is
+older than 1.20.</p>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;url&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;https://gitea.example.com&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;token&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="c1">// Every repository of these organizations that the token can read.</span>
+<span class="w">  </span><span class="s2">&quot;orgs&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;acme&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="c1">// Single repositories, as owner/name.</span>
+<span class="w">  </span><span class="s2">&quot;repos&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;other-org/tool&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="c1">// &quot;affiliated&quot;, &quot;none&quot;, &quot;all&quot; (every repository the token can read; not on gitea.com) or a</span>
+<span class="w">  </span><span class="c1">// keyword matched against repository names.</span>
+<span class="w">  </span><span class="s2">&quot;repositoryQuery&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;none&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;exclude&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="s2">&quot;archived&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;mirrors&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;pattern&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;^acme/sandbox-&quot;</span><span class="w"> </span><span class="p">}]</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Other keys: <code>repositoryPathPattern</code> (default <code>{host}/{nameWithOwner}</code>), <code>nameTransformations</code>,
+<code>gitURLType</code> (<code>http</code> or <code>ssh</code>), <code>certificate</code>, <code>rateLimit</code>, <code>authorization</code> and <code>webhooks</code>.
+Every sync lists the connection's repositories in full. A repository in a private organization is private in Sourcegull,
+and one in a limited organization (visible to signed-in users) is internal.</p>
+<p>For updates within seconds, add a webhook of type <strong>Gitea</strong> in the repository or organization
+settings: the target URL shown on the connection page, content type <code>application/json</code>, one of
+the connection's <code>webhooks</code> secrets as the secret, and the <strong>Push</strong>, <strong>Create</strong>, <strong>Delete</strong>,
+<strong>Fork</strong> and <strong>Repository</strong> events. Gitea signs each delivery with the secret; Sourcegull rejects unsigned or
+wrongly signed ones. Gitea refuses to deliver to private addresses unless
+<code>[webhook] ALLOWED_HOST_LIST</code> in its <code>app.ini</code> allows the Sourcegull host.</p>
+<p><strong>Permissions:</strong> without an <code>authorization</code> block, every Sourcegull user can read every
+repository of a Gitea connection, including private ones. With one, private and internal
+repositories are readable only by the users who can read them on Gitea; see
+<a href="/docs/permissions/#repository-permissions">repository permissions</a>. Pull requests for bulk changes,
+SCIP uploads from CI and team sync are GitLab-only for now; for sign-in with Gitea accounts,
+see <a href="/docs/permissions/#gitea-oauth">permissions</a>.</p>
+<h2 id="token-expiry-alerts"><a class="anchor" href="#token-expiry-alerts" aria-hidden="true">#</a>Token expiry alerts</h2>
+<p>A worker reads when each connection's token expires: daily, and right after its configuration
+changes, with one request (GitLab <code>GET /personal_access_tokens/self</code>; GitHub's
+<code>GitHub-Authentication-Token-Expiration</code> response header). The connection page shows the date,
+the connection list marks tokens that expire within 14 days or have expired, and <strong>Test
+connection</strong> shows it too. GitLab personal, group and project access tokens and GitHub classic
+and fine-grained tokens report it; OAuth tokens and GitHub Apps renew themselves, and Gitea
+does not say.</p>
+<p>Before a token expires, Sourcegull emails every site admin with a verified email (14, 7 and 1
+days before, and on the day it expires). Each alert is sent once per expiry date; a new token
+starts over. The emails need <a href="/docs/configuration/">outbound email</a> (<code>email.smtp</code>). Change or turn
+them off in the site configuration:</p>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="s2">&quot;codeHosts.tokenExpiryAlerts&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;enabled&quot;</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">              </span><span class="c1">// false: no emails; the pages still show the expiry</span>
+<span class="w">  </span><span class="s2">&quot;daysBefore&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="mf">14</span><span class="p">,</span><span class="w"> </span><span class="mf">7</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;recipients&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;ops@example.com&quot;</span><span class="p">]</span><span class="w">  </span><span class="c1">// empty (default): every site admin</span>
+<span class="p">}</span>
+</code></pre></div>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/docs/install.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/"><span>Previous</span><b>Overview</b></a><a class="next" href="/docs/configuration/"><span>Next</span><b>Configuration</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#release-artifacts">Release artifacts</a></li><li class="l3"><a href="#building-from-source">Building from source</a></li><li class="l2"><a href="#docker-compose">Docker Compose</a></li><li class="l3"><a href="#production-layout">Production layout</a></li><li class="l2"><a href="#kubernetes-helm">Kubernetes (Helm)</a></li><li class="l2"><a href="#s3-blob-storage">S3 blob storage</a></li><li class="l2"><a href="#first-sign-in">First sign-in</a></li><li class="l2"><a href="#connecting-gitlab">Connecting GitLab</a></li><li class="l3"><a href="#github-app-authentication">GitHub App authentication</a></li><li class="l3"><a href="#oauth-token">OAuth token</a></li><li class="l3"><a href="#registering-webhooks-automatically">Registering webhooks automatically</a></li><li class="l2"><a href="#connecting-github">Connecting GitHub</a></li><li class="l2"><a href="#connecting-gitea">Connecting Gitea</a></li><li class="l2"><a href="#token-expiry-alerts">Token expiry alerts</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

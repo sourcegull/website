@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bulk changes · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/" aria-current="page">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="bulk-changes">Bulk changes</h1>
+<p>A bulk change makes the same change across many repositories and tracks the resulting GitLab
+merge requests (&quot;changesets&quot;) until they are merged. You describe it in a <strong>bulk change spec</strong> (YAML):
+which repositories, what commands to run in each, and what the merge requests look like.
+Sourcegull runs the steps, shows a preview of every diff, and on apply creates, updates or closes
+the merge requests.</p>
+<p>Bulk changes are on for every user by default; <code>&quot;batchChanges.restrictToAdmins&quot;: true</code>
+limits them to site admins and <code>&quot;batchChanges.enabled&quot;: false</code> turns them off.</p>
+<h2 id="bulk-change-spec"><a class="anchor" href="#bulk-change-spec" aria-hidden="true">#</a>Bulk change spec</h2>
+<div class="codeblock"><div class="codebar"><span>yaml</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">update-go-1-23</span>
+<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Update the Go version in go.mod to 1.23.</span>
+
+<span class="c1"># Repositories: every repository with a result for a search query, and/or explicit ones.</span>
+<span class="nt">on</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repositoriesMatchingQuery</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">file:^go\.mod$ &quot;go 1.22&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gitlab.example.com/acme/tools</span>
+<span class="w">    </span><span class="nt">branch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">release</span><span class="w">        </span><span class="c1"># default: the default branch; `branches:` for several</span>
+
+<span class="c1"># Commands run in each repository, each in a container with the working copy as the</span>
+<span class="c1"># working directory. The diff they leave behind becomes the merge request.</span>
+<span class="nt">steps</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sed -i &#39;s/^go 1\.22.*/go 1.23/&#39; go.mod</span>
+<span class="w">    </span><span class="nt">container</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alpine:3</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">go mod tidy</span>
+<span class="w">    </span><span class="nt">container</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">golang:1.23</span>
+<span class="w">    </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ matches repository.name &quot;*acme/*&quot; }}</span>
+
+<span class="nt">changesetTemplate</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Update Go to 1.23</span>
+<span class="w">  </span><span class="nt">body</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">Updates `go.mod` (bulk change ${{ batch_change.name }}).</span>
+<span class="w">  </span><span class="nt">branch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bulk/update-go-1-23</span>
+<span class="w">  </span><span class="nt">commit</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Update Go to 1.23</span>
+<span class="w">    </span><span class="nt">author</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Sourcegull</span>
+<span class="w">      </span><span class="nt">email</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sourcegull@example.com</span>
+<span class="w">  </span><span class="nt">published</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">         </span><span class="c1"># true, false or &quot;draft&quot;; omit it to publish from the UI</span>
+</code></pre></div>
+<p><code>gull bulk new</code> writes a starter spec, and <code>gull bulk validate -f batch.yaml</code> checks one.
+The editor in the UI validates as you type.</p>
+<p>Spec fields:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>version</code></td>
+<td><code>2</code> (recommended) or <code>1</code>.</td>
+</tr>
+<tr>
+<td><code>name</code>, <code>description</code></td>
+<td>Name (letters, digits, <code>-</code>, <code>_</code>, <code>.</code>) and Markdown description.</td>
+</tr>
+<tr>
+<td><code>on</code></td>
+<td><code>repositoriesMatchingQuery: &lt;query&gt;</code> and/or <code>repository: &lt;name&gt;</code> with optional <code>branch</code> or <code>branches</code>.</td>
+</tr>
+<tr>
+<td><code>workspaces</code></td>
+<td>Monorepo support: <code>rootAtLocationOf: &lt;file&gt;</code> makes each directory holding that file its own workspace and merge request; <code>in: &lt;glob&gt;</code> limits it to some repositories; <code>onlyFetchWorkspace</code> checks out only that directory.</td>
+</tr>
+<tr>
+<td><code>steps</code></td>
+<td><code>run</code> (shell script), <code>container</code> (image), <code>env</code>, <code>files</code> (path → content to create in the container), <code>outputs</code> (named values for later steps and templates), <code>if</code> (skip the step unless true), <code>mount</code> (local files mounted into the container).</td>
+</tr>
+<tr>
+<td><code>transformChanges</code></td>
+<td><code>group</code>: split one repository's diff into several merge requests by <code>directory</code>, each with its own <code>branch</code>.</td>
+</tr>
+<tr>
+<td><code>importChangesets</code></td>
+<td>Track existing merge requests: <code>repository</code> and <code>externalIDs</code> (merge request IIDs).</td>
+</tr>
+<tr>
+<td><code>changesetTemplate</code></td>
+<td><code>title</code>, <code>body</code>, <code>branch</code>, <code>commit</code> (<code>message</code>, <code>author</code>), <code>fork</code> (push the branch to a fork), <code>published</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Text fields can contain template expressions <code>${{ … }}</code> in Go <code>text/template</code> syntax, for
+example <code>${{ repository.name }}</code>, <code>${{ repository.branch }}</code>,
+<code>${{ repository.search_result_paths }}</code>, <code>${{ previous_step.stdout }}</code>,
+<code>${{ steps.modified_files }}</code>, <code>${{ outputs.&lt;name&gt; }}</code> and <code>${{ batch_change.name }}</code>, with the
+functions <code>join</code>, <code>split</code>, <code>replace</code>, <code>join_if</code> and <code>matches</code>. A misspelled name is an error.</p>
+<h2 id="running-a-spec"><a class="anchor" href="#running-a-spec" aria-hidden="true">#</a>Running a spec</h2>
+<h3 id="on-the-server-executors"><a class="anchor" href="#on-the-server-executors" aria-hidden="true">#</a>On the server (executors)</h3>
+<p>Create a bulk change under <strong>Bulk changes → Create</strong>, write the spec in the editor, and run
+it. Sourcegull resolves the workspaces (repositories, branches, directories; repositories with a
+<code>.batchignore</code> file are skipped), queues one job per workspace on the <code>batches</code> executor queue,
+and shows each workspace's progress, logs and diff. Step results are cached, so re-running a
+spec only runs what changed.</p>
+<p>This needs at least one executor with the <code>batches</code> queue, with the Docker or the Kubernetes
+runtime (Compose profile <code>executors</code>, or Helm <code>executor.enabled=true</code> with <code>queues: [batches]</code>); see
+<a href="/docs/architecture/#executors">architecture</a>. Secrets for steps (for example a registry token) are
+<strong>executor secrets</strong>, set per user (User settings → Executor secrets) or for the instance
+(Site admin → Executor secrets) and passed to steps that list them in <code>env</code>.</p>
+<h3 id="locally-gull-bulk"><a class="anchor" href="#locally-gull-bulk" aria-hidden="true">#</a>Locally (<code>gull bulk</code>)</h3>
+<p><code>gull bulk preview</code> and <code>gull bulk apply</code> run the steps on your machine's Docker and upload
+the resulting diffs:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nb">export</span><span class="w"> </span><span class="nv">SOURCEGULL_ENDPOINT</span><span class="o">=</span>https://sourcegull.example.com<span class="w"> </span><span class="nv">SOURCEGULL_ACCESS_TOKEN</span><span class="o">=</span>...
+gull<span class="w"> </span>bulk<span class="w"> </span>preview<span class="w"> </span>-f<span class="w"> </span>batch.yaml<span class="w">             </span><span class="c1"># prints a link to the preview</span>
+gull<span class="w"> </span>bulk<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>batch.yaml<span class="w"> </span>-n<span class="w"> </span>acme<span class="w">       </span><span class="c1"># apply in the organization `acme`</span>
+</code></pre></div>
+<p>Useful flags: <code>-n</code> (namespace: user or organization; default yourself), <code>-j</code> (workspaces in
+parallel; default the number of CPUs), <code>--timeout</code> (per workspace, default <code>60m</code>),
+<code>--clear-cache</code>, <code>--skip-errors</code>, <code>--fail-fast</code>, <code>--keep-logs</code>, <code>--workspace bind|volume</code>,
+<code>--cache</code> (default <code>~/.cache/sourcegull/batch</code>) and <code>--tmp</code>. <code>gull bulk &lt;command&gt; --help</code> lists all.
+<code>gull batch</code> still works as an alias of <code>gull bulk</code>.</p>
+<h2 id="preview-and-apply"><a class="anchor" href="#preview-and-apply" aria-hidden="true">#</a>Preview and apply</h2>
+<p>The preview lists every changeset the spec would create, update, close or leave alone, with
+its diff. <strong>Apply</strong> makes it so: the reconciler pushes branches, opens or updates merge requests
+and closes the ones the spec no longer produces. Re-applying an edited spec updates the existing
+merge requests in place.</p>
+<p>Publishing:</p>
+<ul>
+<li><code>published: false</code> keeps changesets unpublished (nothing is pushed); <code>&quot;draft&quot;</code> opens draft
+merge requests; <code>true</code> opens them right away. <code>published</code> can also be a list of
+<code>repository glob: value</code> entries, where the last match wins.</li>
+<li>Without <code>published</code> in the spec, you publish changesets from the UI.</li>
+<li><code>batchChanges.rolloutWindows</code> in the site configuration limits when and how fast merge
+requests are published, e.g. 10 per hour on weekdays.</li>
+</ul>
+<h2 id="credentials-and-commits"><a class="anchor" href="#credentials-and-commits" aria-hidden="true">#</a>Credentials and commits</h2>
+<p>Sourcegull pushes branches and opens merge requests with a GitLab token with <code>api</code> scope:
+your own (User settings → Bulk changes) or a site-wide one (Site admin → Bulk changes).
+Changesets are published to GitLab only, so a credential for a GitHub or Gitea connection is
+rejected as invalid input.</p>
+<ul>
+<li><strong>Commits signed by GitLab</strong>: with <code>&quot;batchChanges.commitViaAPI&quot;: true</code>, Sourcegull creates commits
+through GitLab's commit API instead of <code>git push</code>, so GitLab signs them where web commit
+signing is set up. Large changes (<code>commitViaAPIMaxBytes</code>, <code>commitViaAPIMaxFiles</code>), symlinks
+and submodules fall back to <code>git push</code>, unless <code>batchChanges.rejectUnverifiedCommit</code> makes
+them fail instead.</li>
+<li><strong>Forks</strong>: <code>&quot;batchChanges.enforceForks&quot;: true</code> (or <code>fork: true</code> in the changeset template)
+pushes branches to a fork in the credential user's namespace.</li>
+<li><code>batchChanges.autoDeleteBranch</code> asks GitLab to delete the source branch on merge.</li>
+</ul>
+<h2 id="tracking"><a class="anchor" href="#tracking" aria-hidden="true">#</a>Tracking</h2>
+<p>A bulk change's page shows every changeset with its state (unpublished, draft, open, merged,
+closed), pipeline status, review state, diff and history, and a <strong>burndown chart</strong> of
+changesets over time. Changesets can be filtered, searched and exported as CSV.</p>
+<p>Bulk actions on selected changesets: comment, publish, merge, close, detach and retry.</p>
+<p>Sourcegull keeps changesets current by syncing them from GitLab periodically and on merge request
+and pipeline webhook events (add a project or group webhook pointing at the URL shown on the
+code host connection page). Closing a bulk change can close its open merge requests.
+<code>batchChanges.changesetsRetention</code> deletes changesets that no bulk change uses any more after
+a while. Previews nobody applied are deleted in the background: a bulk change spec no bulk
+change uses after 7 days, and an uploaded changeset spec never attached to a bulk change spec
+after 2 days (the <code>expiresAt</code> the API shows).</p>
+<p>Bulk change and changeset events can also be sent to other systems through
+<a href="/docs/features/#outbound-webhooks">outbound webhooks</a>.</p>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/docs/bulk-changes.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/mcp/"><span>Previous</span><b>AI agents (MCP)</b></a><a class="next" href="/docs/features/"><span>Next</span><b>Other features</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#bulk-change-spec">Bulk change spec</a></li><li class="l2"><a href="#running-a-spec">Running a spec</a></li><li class="l3"><a href="#on-the-server-executors">On the server (executors)</a></li><li class="l3"><a href="#locally-gull-bulk">Locally (gull bulk)</a></li><li class="l2"><a href="#preview-and-apply">Preview and apply</a></li><li class="l2"><a href="#credentials-and-commits">Credentials and commits</a></li><li class="l2"><a href="#tracking">Tracking</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

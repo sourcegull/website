@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Upgrading Sourcegull on Docker Compose · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/" aria-current="page">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="upgrading-sourcegull-on-docker-compose">Upgrading Sourcegull on Docker Compose</h1>
+<p>Sourcegull migrations follow expand → migrate → contract: the schema of
+version N+1 stays compatible with version N, so you can upgrade one minor version at a time with
+a short restart. To skip versions, stop Sourcegull and run a multi-version upgrade with the new
+image (see <a href="#upgrading-across-several-versions">Upgrading across several versions</a>).</p>
+<p>Commands run in the directory of the Compose bundle (<code>sourcegull-compose</code>, or <code>deploy/docker</code> in a
+checkout). They are given for <code>compose.yaml</code> (one <code>sourcegull</code> container) and, where they differ,
+for the production layout (<code>compose.production.yaml</code>, set as <code>COMPOSE_FILE</code> in <code>.env</code>).</p>
+<h2 id="before-you-upgrade"><a class="anchor" href="#before-you-upgrade" aria-hidden="true">#</a>Before you upgrade</h2>
+<ol>
+<li>
+<p>Read the release notes for the target version.</p>
+</li>
+<li>
+<p>Back up the database and the encryption key file:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nb">cd</span><span class="w"> </span>sourcegull-compose
+docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>postgres<span class="w"> </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>sourcegull<span class="w"> </span>-Fc<span class="w"> </span>sourcegull<span class="w"> </span>&gt;<span class="w"> </span>sourcegull-<span class="k">$(</span>date<span class="w"> </span>+%F<span class="k">)</span>.dump
+docker<span class="w"> </span>compose<span class="w"> </span>cp<span class="w"> </span>sourcegull:/var/opt/sourcegull/keys<span class="w"> </span>sourcegull-keys.bak
+<span class="c1"># compose.production.yaml: cp secrets/encryption-keys secrets/encryption-keys.bak</span>
+</code></pre></div>
+</li>
+</ol>
+<h2 id="upgrade-pull--migrate--up"><a class="anchor" href="#upgrade-pull--migrate--up" aria-hidden="true">#</a>Upgrade: pull → migrate → up</h2>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nb">cd</span><span class="w"> </span>sourcegull-compose
+
+<span class="c1"># 1. Take the new release&#39;s Compose files (extracted over the old ones; the bundle holds no</span>
+<span class="c1">#    .env, secrets/ or files of yours in config/), and point the stack at the new version.</span>
+curl<span class="w"> </span>-fsSL<span class="w"> </span>https://github.com/sourcegull/sourcegull/releases/download/v0.8.0/sourcegull-compose.tar.gz<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>-xz<span class="w"> </span>-C<span class="w"> </span>..
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/^SOURCEGULL_VERSION=.*/SOURCEGULL_VERSION=0.8.0/&#39;</span><span class="w"> </span>.env
+
+<span class="c1"># 2. Pull the new images.</span>
+docker<span class="w"> </span>compose<span class="w"> </span>pull
+
+<span class="c1"># 3. Run the migrations with the new image while the old version keeps serving (one-shot;</span>
+<span class="c1">#    exits non-zero on failure).</span>
+docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--no-deps<span class="w"> </span>sourcegull<span class="w"> </span>migrate<span class="w"> </span>up
+<span class="c1"># compose.production.yaml: docker compose run --rm migrate</span>
+
+<span class="c1"># 4. Recreate the services on the new image.</span>
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+
+<span class="c1"># 5. Check that everything is healthy.</span>
+docker<span class="w"> </span>compose<span class="w"> </span>ps
+docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--no-deps<span class="w"> </span>sourcegull<span class="w"> </span>migrate<span class="w"> </span>status
+<span class="c1"># compose.production.yaml: docker compose run --rm migrate migrate status</span>
+</code></pre></div>
+<p><code>docker compose up -d</code> alone also works: <code>sourcegull supervise</code> applies the migrations when it
+starts, and in the production layout <code>web</code> and <code>worker</code> wait for the <code>migrate</code> one-shot to
+finish successfully (<code>service_completed_successfully</code>). Step 3 just surfaces migration errors
+before any running service is replaced.</p>
+<h2 id="upgrading-across-several-versions"><a class="anchor" href="#upgrading-across-several-versions" aria-hidden="true">#</a>Upgrading across several versions</h2>
+<p>The newest image carries every migration, so it can upgrade any older version in one run. It
+checks that the database is exactly at <code>--from</code>, compares the schema with the one that version
+shipped (drift), applies each version's migrations in order and checks the result:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nb">cd</span><span class="w"> </span>sourcegull-compose
+docker<span class="w"> </span>compose<span class="w"> </span>stop<span class="w"> </span>sourcegull<span class="w">          </span><span class="c1"># compose.production.yaml: stop web worker repo-0</span>
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/^SOURCEGULL_VERSION=.*/SOURCEGULL_VERSION=0.8.0/&#39;</span><span class="w"> </span>.env
+docker<span class="w"> </span>compose<span class="w"> </span>pull
+<span class="c1"># compose.production.yaml: `run --rm migrate migrate …` in place of `run --rm --no-deps sourcegull migrate …`</span>
+docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--no-deps<span class="w"> </span>sourcegull<span class="w"> </span>migrate<span class="w"> </span>versions<span class="w">                    </span><span class="c1"># where the database is</span>
+docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--no-deps<span class="w"> </span>sourcegull<span class="w"> </span>migrate<span class="w"> </span>upgrade<span class="w"> </span>--from<span class="w"> </span><span class="m">0</span>.2.0<span class="w"> </span>--dry-run<span class="w">   </span><span class="c1"># the plan</span>
+docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--no-deps<span class="w"> </span>sourcegull<span class="w"> </span>migrate<span class="w"> </span>upgrade<span class="w"> </span>--from<span class="w"> </span><span class="m">0</span>.2.0<span class="w"> </span>--to<span class="w"> </span><span class="m">0</span>.4.0
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<p>This flow (with a key rotation in the same window) is tested from two releases back with the
+production layout: <code>scripts/test/upgrade.sh compose</code> (<code>.github/workflows/upgrade.yml</code>).</p>
+<p>If the drift check finds differences (manual schema changes, a migration repaired by hand), it
+prints each one with SQL that would fix it and changes nothing. Review and apply the fixes (or
+rerun with <code>--skip-drift-check</code> if you know the differences are harmless). Check a running
+installation at any time with <code>docker compose run --rm --no-deps sourcegull migrate drift</code>
+(production layout: <code>docker compose run --rm migrate migrate drift</code>); it exits 1 on drift.</p>
+<h2 id="out-of-band-migrations"><a class="anchor" href="#out-of-band-migrations" aria-hidden="true">#</a>Out-of-band migrations</h2>
+<p>Some data migrations run in the background after an upgrade (workers run them in batches; the
+site admin <strong>Migrations</strong> page and <code>migrate status</code> (step 5 above) show their progress). A
+release that deprecates such a migration no longer reads the old data format, so
+<code>migrate upgrade</code> and the services refuse to move to it until the migration reaches 100%: upgrade
+to the release before it first, start it and wait. While migrations run, site admins see a banner
+on the search home page that names those that must finish before the next upgrade.</p>
+<h2 id="rotating-the-encryption-key"><a class="anchor" href="#rotating-the-encryption-key" aria-hidden="true">#</a>Rotating the encryption key</h2>
+<p>Secrets (code host configs, tokens, credentials, executor secrets, webhook secrets and URLs,
+watch webhook URLs) are encrypted
+with data keys that are wrapped by the key-encryption keys in the key file
+(<code>/var/opt/sourcegull/keys</code> in the <code>sourcegull-data</code> volume; <code>secrets/encryption-keys</code> in the
+production layout). To rotate:</p>
+<ol>
+<li>
+<p>Append a new key as the <strong>last</strong> line (the last line is the current key; keep the old one):</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>sourcegull<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;echo &quot;k2:$(head -c 32 /dev/urandom | base64)&quot; &gt;&gt; /var/opt/sourcegull/keys&#39;</span>
+<span class="c1"># compose.production.yaml:</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;k2:</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>secrets/encryption-keys
+</code></pre></div>
+</li>
+<li>
+<p>Restart the services (<code>docker compose up -d --force-recreate</code>). Changing the file alone does
+not rotate. The first process to start with the new key re-wraps every data key with it,
+creates new data keys and retires the old ones (decrypt-only); the others reload the keys.</p>
+</li>
+<li>
+<p>The workers re-encrypt every secret with the new data keys (out-of-band migration 1, &quot;Re-encrypt
+secrets&quot;). When the Migrations page shows it at 100%, delete the old key line; no restart is
+needed. The file is then back to one line: since the data keys were re-wrapped, the old key
+is never needed again, and a rotation never needs more than two lines.</p>
+</li>
+</ol>
+<p>Watch webhook URLs saved before keys were configured (or before this release) stay in
+plaintext until out-of-band migration 2 (&quot;Encrypt watch webhook URLs&quot;) encrypts them; it
+runs on its own once keys exist. Before downgrading to a release without it, apply it in reverse
+on the Migrations page so the URLs are plaintext again.</p>
+<p><code>sourcegull keys status</code> lists the data keys and how many secrets are still on retired keys;
+<code>sourcegull keys rotate</code> creates new data keys without changing the key file (same re-encryption).</p>
+<h2 id="if-a-migration-fails"><a class="anchor" href="#if-a-migration-fails" aria-hidden="true">#</a>If a migration fails</h2>
+<p>The old containers keep running on the old version (the schema change is additive). Fix the cause
+shown in the output of step 3 and run it again. If <code>sourcegull supervise</code> fails to migrate on
+start, it exits and Compose restarts it until the migration succeeds; <code>docker compose logs sourcegull</code> shows the error. To go back, restore the dump taken above:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>docker<span class="w"> </span>compose<span class="w"> </span>stop<span class="w"> </span>sourcegull<span class="w">          </span><span class="c1"># compose.production.yaml: stop web worker</span>
+docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>postgres<span class="w"> </span>pg_restore<span class="w"> </span>-U<span class="w"> </span>sourcegull<span class="w"> </span>-d<span class="w"> </span>sourcegull<span class="w"> </span>--clean<span class="w"> </span>--if-exists<span class="w"> </span>&lt;<span class="w"> </span>sourcegull-YYYY-MM-DD.dump
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/^SOURCEGULL_VERSION=.*/SOURCEGULL_VERSION=&lt;previous&gt;/&#39;</span><span class="w"> </span>.env
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<h2 id="upgrading-postgresql"><a class="anchor" href="#upgrading-postgresql" aria-hidden="true">#</a>Upgrading PostgreSQL</h2>
+<p>The <code>postgres</code> service follows one major version (<code>postgres:18-bookworm</code>); <code>docker compose pull</code>
+brings only its minor updates. A new major version cannot start on the old one's data directory,
+so a major upgrade is a dump and restore.</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nb">cd</span><span class="w"> </span>sourcegull-compose
+docker<span class="w"> </span>compose<span class="w"> </span>stop<span class="w"> </span>sourcegull<span class="w">          </span><span class="c1"># compose.production.yaml: stop web worker repo-0</span>
+docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>postgres<span class="w"> </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>sourcegull<span class="w"> </span>-Fc<span class="w"> </span>sourcegull<span class="w"> </span>&gt;<span class="w"> </span>sourcegull-pg.dump
+docker<span class="w"> </span>compose<span class="w"> </span>down
+docker<span class="w"> </span>volume<span class="w"> </span>rm<span class="w"> </span>sourcegull_postgres-data<span class="w">   </span><span class="c1"># the dump is now the only copy: keep it</span>
+<span class="c1"># Change the postgres image in the Compose file to the new major version, then:</span>
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--wait<span class="w"> </span>postgres
+docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>postgres<span class="w"> </span>pg_restore<span class="w"> </span>-U<span class="w"> </span>sourcegull<span class="w"> </span>-d<span class="w"> </span>sourcegull<span class="w"> </span>--no-owner<span class="w"> </span>&lt;<span class="w"> </span>sourcegull-pg.dump
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<p>For a large database, <code>pg_upgrade</code> with both versions' binaries is faster than a dump and
+restore.</p>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/deploy/docker/upgrade.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/features/"><span>Previous</span><b>Other features</b></a><a class="next" href="/docs/helm/"><span>Next</span><b>Helm chart</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#before-you-upgrade">Before you upgrade</a></li><li class="l2"><a href="#upgrade-pull--migrate--up">Upgrade: pull → migrate → up</a></li><li class="l2"><a href="#upgrading-across-several-versions">Upgrading across several versions</a></li><li class="l2"><a href="#out-of-band-migrations">Out-of-band migrations</a></li><li class="l2"><a href="#rotating-the-encryption-key">Rotating the encryption key</a></li><li class="l2"><a href="#if-a-migration-fails">If a migration fails</a></li><li class="l2"><a href="#upgrading-postgresql">Upgrading PostgreSQL</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

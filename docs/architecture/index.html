@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Architecture · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/" aria-current="page">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="architecture">Architecture</h1>
+<h2 id="one-binary-several-roles"><a class="anchor" href="#one-binary-several-roles" aria-hidden="true">#</a>One binary, several roles</h2>
+<p>Everything server-side is one executable, <code>sourcegull</code>. A process runs one or more <strong>roles</strong>:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>sourcegull<span class="w"> </span>run<span class="w"> </span>--roles<span class="o">=</span>web,worker<span class="w">      </span><span class="c1"># or SOURCEGULL_ROLES=web,worker; `all` runs every role</span>
+</code></pre></div>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Does</th>
+<th>State</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>web</code></td>
+<td>The UI, GraphQL (<code>/.api/graphql</code>), streaming search, MCP and other HTTP APIs, sign-in, the executor queue API; fans searches out to the repo nodes.</td>
+<td>stateless; scale horizontally</td>
+</tr>
+<tr>
+<td><code>repo</code></td>
+<td>A repo node: bare git repositories, index shards, node-side search, symbols, diffs, blame, archives, commits for bulk changes. Repositories are partitioned across nodes.</td>
+<td>data volume per node</td>
+</tr>
+<tr>
+<td><code>worker</code></td>
+<td>Background jobs (pgqueue workers) and leader-elected schedulers: discovery, fetch scheduling, permission sync, SCIP processing, auto-indexing, bulk change reconciliation, trends, watches, search jobs, analytics rollups, out-of-band migrations.</td>
+<td>stateless; scale horizontally</td>
+</tr>
+<tr>
+<td><code>blob</code></td>
+<td>Blob storage over HTTP for SCIP uploads, code graph files and search job results. Not needed with an <a href="/docs/install/#s3-blob-storage">S3 bucket</a>.</td>
+<td>data volume</td>
+</tr>
+</tbody>
+</table></div>
+<p>Other subcommands of the same binary:</p>
+<ul>
+<li><code>sourcegull executor</code>: takes jobs from the web role and runs them in containers (Docker) or as
+Kubernetes Jobs. See <a href="#executors">Executors</a>.</li>
+<li><code>sourcegull migrate</code>: applies, reverts, checks and upgrades the database schema
+(<a href="/docs/configuration/#database-migrations">configuration</a>).</li>
+<li><code>sourcegull supervise</code>: creates a key file if missing, applies migrations and runs every role in
+one process against the database at <code>SOURCEGULL_DATABASE_URL</code>.</li>
+<li><code>sourcegull keys status|rotate</code>: data encryption keys.</li>
+<li><code>sourcegull users reset-password &lt;username&gt;</code>: prints a password reset link
+(<a href="/docs/permissions/#locked-out-admins">permissions</a>).</li>
+<li><code>sourcegull monitoring generate</code>: writes the Grafana dashboards, Prometheus rules and
+<a href="/docs/observability/">alert docs</a> from their definitions in <code>crates/monitoring</code>.</li>
+</ul>
+<p>The <code>gull</code> binary is the command-line client (SCIP uploads, bulk changes); it ships in the
+same image.</p>
+<p>Every process listens on <code>:6060</code> (internal: <code>/metrics</code>, <code>/healthz</code>, <code>/readyz</code>, and the blob API
+in a process with the <code>blob</code> role). The <code>web</code> role also listens on <code>:7080</code> (public: UI and
+APIs), and repo nodes listen for gRPC on <code>:3178</code>.</p>
+<h2 id="postgresql-is-the-only-dependency"><a class="anchor" href="#postgresql-is-the-only-dependency" aria-hidden="true">#</a>PostgreSQL is the only dependency</h2>
+<p>PostgreSQL (16 or newer) holds all durable state and also does the jobs often given to other services:</p>
+<ul>
+<li><strong>Job queues</strong> (<code>pgqueue</code>): one table per queue, dequeued with <code>FOR UPDATE SKIP LOCKED</code>, with
+heartbeats, retries with backoff and a resetter for jobs whose worker died.</li>
+<li><strong>Notifications</strong> (<code>LISTEN/NOTIFY</code>) wake up workers and propagate site configuration,
+permission changes and the repo routing table. Every subscriber polls as a fallback, since
+notifications are not durable.</li>
+<li><strong>Leader election</strong>: advisory locks, or Kubernetes <code>Lease</code> objects
+(<code>SOURCEGULL_LEADER_BACKEND=kubernetes</code>).</li>
+<li><strong>Sessions, caches and rate limits</strong>: code host request budgets are shared by every process
+through Postgres, and a code host's 429 pauses all of them.</li>
+</ul>
+<p>Caches, sessions, rate limits and pub/sub are behind traits with in-process and Postgres
+implementations, so another backend can be added without touching their callers.</p>
+<p>Secrets are encrypted at rest with envelope encryption: data keys per record class, wrapped by
+key-encryption keys from a file (<a href="/docs/configuration/#encryption-keys">encryption keys</a>).</p>
+<h2 id="grpc-between-roles"><a class="anchor" href="#grpc-between-roles" aria-hidden="true">#</a>gRPC between roles</h2>
+<p>Roles talk to repo nodes over gRPC, defined in <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/proto/repo.proto" rel="noopener"><code>proto/repo.proto</code></a>:</p>
+<ul>
+<li><code>RepoService</code>: clone, fetch, status, refs, files and trees, commits, logs, diffs, blame,
+archives, merge bases, <code>CopyRepo</code> (for rebalancing), and the write operations bulk changes
+need (<code>CreateCommitFromPatch</code>, <code>ApplyPatch</code>, <code>Push</code>).</li>
+<li><code>SearchService</code>: unindexed search of a commit, commit and diff search, indexed search, index
+status and reindexing, trend series counts and language statistics.</li>
+</ul>
+<p>The protos are compiled at build time (no <code>protoc</code> needed). Executors talk to the web role over
+HTTP (<code>/.executors/*</code>), authenticated with the shared executor token.</p>
+<h2 id="repo-nodes-and-rebalancing"><a class="anchor" href="#repo-nodes-and-rebalancing" aria-hidden="true">#</a>Repo nodes and rebalancing</h2>
+<p>Each repository belongs to one repo node, chosen by <strong>rendezvous hashing</strong> of its name over the
+node list in <code>SOURCEGULL_REPO_NODES</code>. Every process computes the same assignment, so <code>web</code> and
+<code>worker</code> route requests without a lookup service. The assignment is stored per repository and
+published with <code>NOTIFY</code> when it changes.</p>
+<p>When nodes are added or removed, the repositories whose owner changes are <strong>moved without
+downtime</strong>:</p>
+<ol>
+<li>Every node sends heartbeats with its node list. Once every configured node is alive with the
+same list, the first live node plans a move for each misplaced repository.</li>
+<li>The new owner copies the repository from the old one with <code>CopyRepo</code> in rounds (a ref
+snapshot plus a pack of what it lacks, checksummed, with connectivity and refs verified)
+until a round brings nothing new, then builds its index.</li>
+<li>The flip: the repository's node changes in one transaction, routing tables reload that
+repository (the notification names it), and a catch-up fetch is queued.</li>
+<li>The old owner keeps serving during a grace period, then deletes its copy.</li>
+</ol>
+<p>Writes check the assignment: a node clones, fetches, commits or pushes (gRPC) only repositories
+assigned to it (or to none yet), and refuses the others with <code>FAILED_PRECONDITION</code>
+(<code>not_assigned</code>). A fetch or index build that ends after the flip records nothing, so the new
+owner's state is never overwritten; a first clone that ends after it is removed.</p>
+<p>Repositories of a node that is gone are cloned again from the code host. Failed moves are retried with
+backoff; <strong>Site admin → Repo nodes</strong> shows disk usage per node and the moves, and can retry
+failed ones. <code>repoNodes.pinnedRepos</code> in the site configuration pins a
+repository (for example a very large monorepo) to a node.</p>
+<p>Repo nodes protect their disk: clones pause and caches of inactive repositories are evicted
+below configurable free-space thresholds (<a href="/docs/configuration/#repo-nodes">configuration</a>).</p>
+<h2 id="the-search-index"><a class="anchor" href="#the-search-index" aria-hidden="true">#</a>The search index</h2>
+<p>Sourcegull has its own index format (<code>crates/index-format</code>), built by <code>crates/indexer</code> on the repo
+nodes and queried by <code>crates/search-exec</code>. The rest of the system reaches it only through the
+<code>SearchIndex</code> trait (<code>crates/search/src/index.rs</code>).</p>
+<p><strong>Shards.</strong> A shard file holds one repository's indexed branches: by default the default branch,
+plus those listed in <code>search.index.branches</code> and those selected by
+<code>search.index.recentBranches</code>, up to 64 in all. Recent branches are stored sorted by name, because
+a delta build needs the same branches in the same order; a branch added or dropped means a full
+build. A file version shared by several branches is stored once, with a bitmask of the branches that contain it. A shard has these sections,
+each with its own CRC-32:</p>
+<ul>
+<li>the repository and its branches with their commits,</li>
+<li>a doc table (path, language, size, branch mask, flags) sorted by path, and front-coded paths,</li>
+<li>the content (LZ4-compressed) and newline offsets,</li>
+<li>a <strong>trigram index</strong>: an FST mapping each case-folded trigram to a posting list of doc ids
+(delta varints, or a Roaring bitmap when smaller),</li>
+<li>the symbols defined in each file (extracted with tree-sitter while indexing),</li>
+<li>optional static file ranks from the code graph.</li>
+</ul>
+<p>Shards are read through mmap and every checksum and reference is checked when a shard opens, so
+a corrupt file is an error, never a crash. Binary files and files over 1 MiB are kept as docs
+(path search finds them) without content; files matched by <code>search.index.alwaysIndex</code> are read
+up to 16 MiB. A change to that rule rebuilds the affected shards at the next reconcile pass.</p>
+<p><strong>Delta shards.</strong> After a push, a node does not rebuild the whole repository. A delta build
+compares the branch trees with the base shard path by path: each changed path is written to a
+delta shard with all its current versions, and its docs in the base are tombstoned. A
+repository has a base shard and at most one delta; the next full build folds them together.
+Pushes that arrive within the debounce window (<code>SOURCEGULL_REPO_INDEX_DEBOUNCE_MS</code>) are coalesced
+into one build, and the last push is always indexed.</p>
+<p><strong>Compound shards.</strong> Small repositories are packed together into compound shards, merged from
+their existing shards without git access. Compound shards that become small or mostly obsolete
+are repacked. New files are swapped in before old ones are deleted, so a crash at any step
+leaves a consistent index.</p>
+<p><strong>Query evaluation.</strong> For each shard, the pattern's trigram query selects candidate docs (rarest
+posting lists first); branch, <code>file:</code> and <code>lang:</code> filters run on the doc table; then candidates
+are verified with the same matcher that unindexed search uses, in parallel batches. Symbol
+search uses the same candidates and the symbols section, without reading content. Results are
+scored (<a href="/docs/search/#ranking">ranking</a>) with the static file rank as a tie-breaker.</p>
+<p><strong>Unindexed revisions.</strong> A revision the index does not hold (another branch, a tag, a commit,
+<code>rev:at.time()</code>) is searched directly from git: the repo node walks the commit's tree, applies
+path filters before reading blobs, skips binary and oversized files, and searches blobs in
+parallel. Both paths return the same matches. <code>index:no</code> forces it, <code>index:only</code> excludes it,
+and <code>SOURCEGULL_REPO_DISABLE_INDEX</code> turns the index off on a node.</p>
+<p>Commit and diff search (<code>type:commit</code>, <code>type:diff</code>) read a per-repository commit log maintained
+on the repo node.</p>
+<h2 id="executors"><a class="anchor" href="#executors" aria-hidden="true">#</a>Executors</h2>
+<p>Executors run untrusted work (indexers, bulk change steps) outside the server processes. They
+poll the web role's queues (<code>codeintel</code>, <code>batches</code>), send heartbeats, and report each job as
+completed, failed or errored (errored jobs are retried). The Docker runtime runs each step as a
+container with optional memory, CPU and network limits; the Kubernetes runtime runs each job as
+a Kubernetes Job with configurable namespace, runtime class, node selector, tolerations and
+resources. Executor secrets (site- or namespace-level) are injected as environment variables.</p>
+<h2 id="crate-map"><a class="anchor" href="#crate-map" aria-hidden="true">#</a>Crate map</h2>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Crates</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Binary and client</td>
+<td><code>sourcegull</code> (server: roles, <code>run</code>, <code>migrate</code>, <code>supervise</code>, <code>executor</code>, <code>keys</code>; the feature list in <code>src/features.rs</code>), <code>repo-node</code> (the <code>repo</code> role: cloning, indexing, janitor, rebalancing), <code>cli</code> (<code>gull</code>)</td>
+</tr>
+<tr>
+<td>Foundations</td>
+<td><code>types</code>, <code>config</code> (site configuration, settings, the resources file format), <code>declarative</code> (applies the configuration-as-code files), <code>db</code> (schema, migrations, core stores), <code>feature</code> (the <code>Feature</code> trait: a feature's routes, workers and singletons), <code>pgqueue</code>, <code>pubsub</code>, <code>leader</code>, <code>ratelimit</code>, <code>crypto</code>, <code>oobmigration</code>, <code>observability</code>, <code>monitoring</code> (dashboards and alerts over the metric names in <code>types::metric_names</code>), <code>testutil</code></td>
+</tr>
+<tr>
+<td>Identity and APIs</td>
+<td><code>authn</code> (accounts, sessions, tokens, RBAC), <code>authz</code> (repository permissions), <code>services</code> (shared state without HTTP: the git reader, email, relay IDs, search backends, compute, server-side bulk change execution), <code>graphql</code> (schema assembly and the core types: users, organizations, repositories, git, search, site, settings, permissions), <code>graphql-core</code> (context, pagination, node IDs, the <code>Node</code> interface and node loader registry, references to shared types, the <code>GraphqlFeature</code> trait), one <code>&lt;feature&gt;-graphql</code> crate per feature (<code>insights</code>, <code>monitors</code>, <code>own</code>, <code>codeintel</code>, <code>batches</code>, <code>notebooks</code>, <code>searchjobs</code>, <code>saved-searches</code>, <code>outbound-webhooks</code>, <code>analytics</code>, <code>executors</code>), <code>http-api</code> (HTTP server: routing, middleware, streaming endpoints, SCIM, webhooks), <code>http-extract</code> (caller extractors and error responses for crates that add routes), <code>mcp</code>, <code>oauth-server</code> (OAuth sign-in of MCP clients), <code>web-assets</code> (embedded UI)</td>
+</tr>
+<tr>
+<td>Code hosts and git</td>
+<td><code>codehost</code> (traits and the shared REST client: retries, rate limits, pagination, the same-origin credential guard), <code>codehost-gitlab</code>, <code>codehost-github</code>, <code>codehost-gitea</code>, <code>repos</code> (discovery, webhooks), <code>gitstore</code> (bare repositories on repo nodes), <code>rpc</code> (gRPC and routing), <code>languages</code>, <code>highlight</code></td>
+</tr>
+<tr>
+<td>Search</td>
+<td><code>query</code> (parser), <code>query-wasm</code> (parser for the UI), <code>search</code> (planning, the pattern matcher, ranking, streaming types), <code>search-web</code> (web-side search execution, with code ownership passed in), <code>search-client</code> (fan-out to the repo nodes, repository predicates, wire forms), <code>search-exec</code> (node-side engines), <code>index-format</code>, <code>indexer</code>, <code>structural</code>, <code>symbols</code>, <code>searchjobs</code></td>
+</tr>
+<tr>
+<td>Code navigation</td>
+<td><code>codenav</code>, <code>codeintel-scip</code>, <code>codeintel-syntactic</code>, <code>codeintel-policies</code>, <code>autoindex</code>, <code>ranking</code></td>
+</tr>
+<tr>
+<td>Executors and blobs</td>
+<td><code>executor</code>, <code>executor-api</code>, <code>blobstore</code></td>
+</tr>
+<tr>
+<td>Bulk changes</td>
+<td><code>batches</code> (specs), <code>batches-template</code>, <code>batches-resolver</code>, <code>batches-steps</code>, <code>batches-reconciler</code></td>
+</tr>
+<tr>
+<td>Other features</td>
+<td><code>insights</code>, <code>monitors</code>, <code>notebooks</code>, <code>own</code>, <code>compute</code>, <code>analytics</code>, <code>outbound-webhooks</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Permission rules live in the feature crates, in an <code>access</code> module that takes the actor and
+returns <code>authn::AccessError</code> (<code>insights</code>, <code>monitors</code>, <code>notebooks</code>, <code>own</code> for teams, <code>searchjobs</code>;
+bulk changes, executor secrets, settings, saved searches and search contexts in <code>services</code>).
+GraphQL, MCP and the HTTP routes call the same functions and only map the error. The namespace
+rule (who may act for a user or an organization) and role permissions are in <code>authn::access</code>.
+Repository rows are read through the <code>db</code> stores with the viewer's <code>RepoAccess</code>;
+<code>scripts/check-repo-sql.py</code> rejects raw <code>repo</code> reads elsewhere.</p>
+<p><code>db</code> holds the pool, the migrations (one directory) and the core stores: repositories, users,
+organizations, code host connections, settings, sessions and tokens, the OAuth server's tokens
+(checked by <code>authn</code>) and SCIM provisioning (it writes the user tables). Feature stores live in
+their crates (<code>batches</code> behind its <code>store</code> feature, <code>outbound-webhooks</code>, <code>codeintel-scip</code>,
+<code>codeintel-policies</code>, <code>autoindex</code>, <code>ranking</code>, <code>insights</code>, <code>own</code>, <code>monitors</code>, <code>searchjobs</code>,
+<code>notebooks</code>, <code>analytics</code>).</p>
+<p>A feature implements <code>feature::Feature</code> in its crate (routes, workers, singletons) and
+<code>graphql_core::GraphqlFeature</code> in its <code>&lt;feature&gt;-graphql</code> crate (query and mutation objects, node
+types and loaders), and is added to <code>crates/sourcegull/src/features.rs</code> (<code>all()</code> and the <code>Graphql</code>
+tuple); see &quot;GraphQL by domain&quot; in <code>development.md</code>. A singleton runs under a lease of its name
+(<code>leader</code>); each time a process takes the lease it advances the lease's epoch in
+<code>leader_epochs</code> and hands the task a <code>Fence</code>, and the writes a leader that lost its lease must not
+make (out-of-band migration batches and progress, the ranker's ranks, analytics rollups, the
+watch evaluator's trigger jobs and cursor, insights backfill state, the changeset syncer and
+rollout scheduler, team sync) commit only while that epoch is current. Watch actions other than email are queued on
+the outbound webhook queue and delivered by its sender (request guard, retries, delivery log).</p>
+<p>Outside <code>crates/</code>: <code>proto/</code> (gRPC), <code>ui/</code> (SvelteKit web app, browser checks in <code>ui/e2e/</code>),
+<code>deploy/</code> (images, Compose, Helm chart, GitLab CI template) and <code>scripts/</code> (development,
+tests, benchmarks).</p>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/docs/architecture.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/observability/alerts/"><span>Previous</span><b>Alerts</b></a><a class="next" href="/docs/development/"><span>Next</span><b>Development</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#one-binary-several-roles">One binary, several roles</a></li><li class="l2"><a href="#postgresql-is-the-only-dependency">PostgreSQL is the only dependency</a></li><li class="l2"><a href="#grpc-between-roles">gRPC between roles</a></li><li class="l2"><a href="#repo-nodes-and-rebalancing">Repo nodes and rebalancing</a></li><li class="l2"><a href="#the-search-index">The search index</a></li><li class="l2"><a href="#executors">Executors</a></li><li class="l2"><a href="#crate-map">Crate map</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

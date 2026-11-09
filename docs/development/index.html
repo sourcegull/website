@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Development · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/" aria-current="page">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="development">Development</h1>
+<p>Sourcegull is a Rust workspace (<code>crates/</code>) with a SvelteKit web app (<code>ui/</code>). The code layout is
+described in <a href="/docs/architecture/#crate-map">architecture</a>.</p>
+<h2 id="in-docker-nothing-to-install-but-docker"><a class="anchor" href="#in-docker-nothing-to-install-but-docker" aria-hidden="true">#</a>In Docker (nothing to install but Docker)</h2>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w">          </span><span class="c1"># postgres, sourcegull (built from this checkout), UI dev server</span>
+scripts/dev<span class="w"> </span>logs<span class="w"> </span>sourcegull<span class="w">       </span><span class="c1"># the first start compiles the workspace (a few minutes)</span>
+open<span class="w"> </span>http://localhost:5173<span class="w">    </span><span class="c1"># UI with hot reload; API and embedded UI on :7080, metrics on :6060</span>
+</code></pre></div>
+<p><code>compose.yaml</code> at the repository root is the development setup (the Compose files for installs
+are in <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/docker/compose.yaml" rel="noopener"><code>deploy/docker/</code></a>). The <code>sourcegull</code> service runs
+<code>cargo build -p sourcegull</code> and then <code>sourcegull supervise</code> (encryption keys, migrations, all roles)
+against the <code>postgres</code> service. The <code>ui</code> service builds the query parser WASM and runs
+<code>vite dev</code>, which proxies <code>/.api</code> to <code>sourcegull</code>. After changing Rust code,
+<code>scripts/dev restart</code> rebuilds and restarts the backend; UI changes reload on their own.</p>
+<p>The first user to sign up becomes the site admin.</p>
+<p>The <code>postgres</code> service runs PostgreSQL 18 with its volume at <code>/var/lib/postgresql</code>.</p>
+<p>Auto-indexing needs an executor: <code>docker compose --profile executors up -d executor</code> runs one
+from the binary the <code>sourcegull</code> service builds, with jobs as containers on the host's Docker. Set
+<code>SOURCEGULL_EXECUTOR_TOKEN</code> (the site config's <code>executors.accessToken</code>), <code>DOCKER_GID</code>
+(<code>stat -c %g /var/run/docker.sock</code>) and <code>SOURCEGULL_UID</code> (<code>id -u</code>) in <code>.env</code>, and restart it after
+<code>scripts/dev restart</code>, since it runs the rebuilt binary only when it starts.</p>
+<p><code>scripts/dev</code> wraps the common commands (<code>scripts/dev help</code> lists them all):</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/dev up</code> / <code>down</code> / <code>restart</code> / <code>logs [service]</code> / <code>ps</code></td>
+<td>manage the development services</td>
+</tr>
+<tr>
+<td><code>scripts/dev shell</code></td>
+<td>bash in the toolbox container (cargo, npm, psql, git); <code>scripts/dev &lt;cmd&gt;</code> runs one command there, e.g. <code>scripts/dev cargo build -p sourcegull</code></td>
+</tr>
+<tr>
+<td><code>scripts/dev test [args]</code></td>
+<td><code>cargo test --workspace</code> against the dev Postgres</td>
+</tr>
+<tr>
+<td><code>scripts/dev check</code></td>
+<td>the raw <code>repo</code> SQL check (<a href="#tests">below</a>), rustfmt, clippy <code>-D warnings</code>, the UI type check (<code>svelte-check</code>), the UI formatting (Prettier) and the UI unit tests</td>
+</tr>
+<tr>
+<td><code>scripts/dev fmt</code></td>
+<td><code>cargo fmt --all</code></td>
+</tr>
+<tr>
+<td><code>scripts/dev psql [db]</code></td>
+<td>psql on the dev database (also on <code>localhost:55432</code>, user and password <code>sourcegull</code>)</td>
+</tr>
+<tr>
+<td><code>scripts/dev test-executor</code></td>
+<td>the executor tests against the host's Docker daemon (runs <code>alpine</code> containers)</td>
+</tr>
+<tr>
+<td><code>scripts/dev test-batches-steps</code></td>
+<td>the batch step runner tests with real containers</td>
+</tr>
+<tr>
+<td><code>scripts/dev test-batch-cli</code></td>
+<td>the <code>gull bulk</code> tests with real containers against an in-process server</td>
+</tr>
+<tr>
+<td><code>scripts/dev test-s3 [down]</code></td>
+<td>the S3 blob store tests against MinIO</td>
+</tr>
+<tr>
+<td><code>scripts/dev test-kubernetes [down]</code></td>
+<td>leader election (<code>Lease</code>) and the executor's Kubernetes runtime against k3s in Docker (container <code>sourcegull-k3s</code>)</td>
+</tr>
+<tr>
+<td><code>scripts/dev test-codeintel</code></td>
+<td>end to end: the dev GitLab with a runner, the Helm chart in k3s, CI uploads and auto-indexing for Go, TypeScript, Java, Python and Rust (<code>scripts/test/codeintel.sh</code>; <code>up</code>, <code>run</code>, <code>verify</code>, <code>down</code>)</td>
+</tr>
+<tr>
+<td><code>scripts/dev test-batches-scale</code></td>
+<td>end to end: a 1,000-repository bulk change against GitLab CE, server-side and with <code>gull bulk apply</code> (<code>scripts/test/batches-scale.sh</code>)</td>
+</tr>
+<tr>
+<td><code>scripts/dev test-upgrade</code></td>
+<td>end to end: upgrade from an older version with Docker Compose and with the Helm chart on kind, checking data and out-of-band migrations, and the previous release on the new schema (<a href="#migrations">migrations</a>, <code>scripts/test/upgrade.sh</code>)</td>
+</tr>
+<tr>
+<td><code>scripts/dev e2e</code></td>
+<td>browser checks of the UI with Playwright (<a href="#browser-checks">below</a>)</td>
+</tr>
+<tr>
+<td><code>scripts/dev corpus &lt;cmd&gt; [name]</code></td>
+<td>benchmark corpora (<a href="#benchmarks">below</a>)</td>
+</tr>
+<tr>
+<td><code>scripts/dev bench-search --corpus &lt;name&gt;</code></td>
+<td>the end-to-end search benchmark</td>
+</tr>
+<tr>
+<td><code>scripts/dev media</code></td>
+<td>the README animation and screenshots (<a href="#readme-media">below</a>)</td>
+</tr>
+<tr>
+<td><code>scripts/dev app</code></td>
+<td>build the production image and run it on :7081 (database <code>sourcegull_app</code>)</td>
+</tr>
+<tr>
+<td><code>scripts/dev gitlab up|down|seed|logs|test</code></td>
+<td>the <a href="#development-gitlab">development GitLab</a></td>
+</tr>
+<tr>
+<td><code>scripts/dev gitea up|down|logs</code></td>
+<td>a fresh, empty Gitea for the <a href="#browser-checks">Gitea browser check</a></td>
+</tr>
+<tr>
+<td><code>scripts/dev prune [days]</code></td>
+<td>delete build outputs not written for <code>days</code> days (default 7)</td>
+</tr>
+<tr>
+<td><code>scripts/dev reset</code></td>
+<td>delete the database, data and build caches (and the dev GitLab)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Cargo's cache, <code>target/</code> and <code>ui/node_modules</code> live in Docker volumes, separate from any
+toolchain on the host; files the containers write into the checkout belong to your user. Cargo
+never deletes old builds from <code>target/</code>, so run <code>scripts/dev prune</code> now and then. Ports
+can be changed with <code>SOURCEGULL_HTTP_PORT</code>, <code>SOURCEGULL_UI_PORT</code>, <code>SOURCEGULL_INTERNAL_PORT</code>,
+<code>SOURCEGULL_PG_PORT</code> and <code>SOURCEGULL_APP_PORT</code> (in the environment or a <code>.env</code> file).</p>
+<h3 id="seeing-a-ui-change"><a class="anchor" href="#seeing-a-ui-change" aria-hidden="true">#</a>Seeing a UI change</h3>
+<p>Three ways to see a UI change, from fastest to slowest. Times are from saving a one-line change
+to the new text showing in the browser, with the default container limits (4 cores):</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Where</th>
+<th>How</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vite, <code>:5173</code></td>
+<td>nothing: the page updates in place (hot module replacement)</td>
+<td>under 0.1 s</td>
+</tr>
+<tr>
+<td>Debug backend, <code>:7080</code></td>
+<td><code>npm run build</code> in <code>ui/</code>, then reload the page</td>
+<td>~6 s</td>
+</tr>
+<tr>
+<td>Production image</td>
+<td><code>scripts/image-build.sh --test …</code>, then restart the container</td>
+<td>~4 min</td>
+</tr>
+</tbody>
+</table></div>
+<p>Use Vite on <code>:5173</code> for UI work. It proxies <code>/.api</code>, <code>/.auth</code>, <code>/.executors</code> and <code>/-/</code> to the
+backend on <code>:7080</code>, so pages show real data. Only Rust changes need the backend restarted
+(<code>scripts/dev restart</code>).</p>
+<ul>
+<li>The services mount the checkout <code>docker compose</code> runs from. To serve a git worktree, run
+<code>docker compose up -d --no-deps ui sourcegull</code> from inside it.</li>
+<li><code>:7080</code> serves the UI that is embedded in the binary. A debug binary reads <code>ui/build</code> from disk
+on every request, so a rebuilt UI shows after a reload. <code>ui/build</code> must exist when the binary
+is compiled; otherwise it embeds a placeholder page until the next build.</li>
+<li>A test image is only worth building to try the packaged binary, for example on a local
+Kubernetes cluster (<a href="#resource-limits">resource limits</a>). The UI is embedded in the binary,
+so any UI change recompiles the <code>sourcegull</code> crate and relinks it.</li>
+<li>Vite accepts only <code>localhost</code> names and IP addresses as the host. A browser in another
+container (headless checks) must use the <code>ui</code> container's IP address, not <code>http://ui:5173</code>:
+<code>docker inspect -f '{{(index .NetworkSettings.Networks &quot;sourcegull-dev_default&quot;).IPAddress}}' sourcegull-dev-ui-1</code>.</li>
+</ul>
+<h3 id="development-gitlab"><a class="anchor" href="#development-gitlab" aria-hidden="true">#</a>Development GitLab</h3>
+<p>Tests use a mock GitLab API (<code>sourcegull_codehost_gitlab::testing</code>). To try Sourcegull against a real
+GitLab, or to check that the mock still matches GitLab, <code>scripts/dev gitlab up</code> starts GitLab CE
+(Compose profile <code>gitlab</code>, about 3 GB of memory, 3–5 minutes on the first start) and seeds it
+with <code>deploy/docker/dev/gitlab-seed.rb</code>. Seeding is idempotent and runs again with
+<code>scripts/dev gitlab seed</code>. <code>scripts/dev gitlab down</code> stops it; its data is kept.</p>
+<ul>
+<li>URL <code>http://gitlab.localhost:8929</code> from the browser and the containers. Tools on the host
+need <code>127.0.0.1 gitlab.localhost</code> in <code>/etc/hosts</code>: GitLab's links (pagination, clone URLs)
+use that name. Root password <code>Xq7v-Lm2k-Pz9w</code>.</li>
+<li>Users <code>alice</code>, <code>bob</code>, <code>carol</code> (password <code>Hn4t-Rb8c-Wy3j</code>). Tokens are
+<code>glpat-sourcegull-dev-root</code> (api, sudo) and <code>glpat-sourcegull-dev-&lt;user&gt;</code> (read_api).</li>
+<li>Projects under <code>acme</code> (private, internal, empty, archived, a subgroup) and <code>community</code>
+(public), with memberships for testing permissions; see the seed file.</li>
+<li>OAuth application <code>sourcegull-dev</code> / <code>sourcegull-dev-secret</code> with callbacks on :7080 and :5173.</li>
+</ul>
+<p>A code host connection for the <code>sourcegull</code> container:</p>
+<div class="codeblock"><div class="codebar"><span>json</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;http://gitlab.localhost:8929&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glpat-sourcegull-dev-root&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;projectQuery&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;groups/acme/projects?include_subgroups=true&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;groups/community/projects&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><code>scripts/dev gitlab test</code> runs the live tests (<code>crates/codehost-gitlab/tests/live.rs</code>) against
+it. They do nothing unless <code>SOURCEGULL_TEST_GITLAB_URL</code> is set. These are fixed development
+credentials; never expose this GitLab outside your machine.</p>
+<h3 id="vs-code"><a class="anchor" href="#vs-code" aria-hidden="true">#</a>VS Code</h3>
+<p>&quot;Dev Containers: Reopen in Container&quot; opens the checkout in the <code>dev</code> service
+(<code>.devcontainer/</code>), with rust-analyzer and the Svelte extension, and the dev Postgres next to it.</p>
+<h2 id="on-the-host"><a class="anchor" href="#on-the-host" aria-hidden="true">#</a>On the host</h2>
+<p>With a Rust toolchain, Node.js and PostgreSQL 16 or newer installed:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="c1"># Postgres for development and tests (prints the URL)</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">SOURCEGULL_TEST_DATABASE_URL</span><span class="o">=</span><span class="k">$(</span>scripts/dev-postgres.sh<span class="k">)</span>
+
+cargo<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--workspace
+<span class="o">(</span><span class="nb">cd</span><span class="w"> </span>ui<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>ci<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>build<span class="o">)</span><span class="w">        </span><span class="c1"># optional: embed the UI</span>
+
+<span class="nb">export</span><span class="w"> </span><span class="nv">SOURCEGULL_DATABASE_URL</span><span class="o">=</span><span class="nv">$SOURCEGULL_TEST_DATABASE_URL</span>
+cargo<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span>sourcegull<span class="w"> </span>--<span class="w"> </span>migrate<span class="w"> </span>up
+cargo<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span>sourcegull<span class="w"> </span>--<span class="w"> </span>run<span class="w"> </span>--roles<span class="o">=</span>all<span class="w">    </span><span class="c1"># UI and API on :7080, metrics on :6060</span>
+</code></pre></div>
+<h2 id="tests"><a class="anchor" href="#tests" aria-hidden="true">#</a>Tests</h2>
+<ul>
+<li>Unit and integration tests live with each crate. Tests that need a database use
+<code>SOURCEGULL_TEST_DATABASE_URL</code> (set by <code>scripts/dev test</code>), create a private database each, and
+pass without doing anything when it is unset. <code>scripts/dev test</code> also sets
+<code>SOURCEGULL_REQUIRE_TEST_DATABASE=1</code>, which makes them fail instead, so a green run means every
+test ran; an unreachable database always fails them.</li>
+<li>Tests that need outside services (Docker, MinIO, k3s, a real GitLab) have their own
+<code>scripts/dev test-*</code> command and are skipped otherwise.</li>
+<li>UI: <code>npm test</code> (Vitest), <code>npm run check</code> (<code>svelte-check</code>) and <code>npm run format:check</code>
+(Prettier, <code>ui/.prettierrc</code>) in <code>ui/</code>, all part of <code>scripts/dev check</code>; <code>npm run format</code>
+formats <code>ui/src</code>. Commits that only reformat go in <code>.git-blame-ignore-revs</code>; for <code>git blame</code> to skip
+them, run <code>git config blame.ignoreRevsFile .git-blame-ignore-revs</code> once. <code>ui/src/lib/graphql-types.ts</code> holds the result and variable types of
+every GraphQL operation the UI exports (<code>&lt;Name&gt;Query</code>, <code>&lt;Name&gt;Mutation</code>, <code>…Variables</code>),
+generated from <code>ui/schema.graphql</code>; <code>npm test</code> fails when it is stale, and
+<code>npm run graphql-types</code> rewrites it. Operation names must be unique. Operations are exported
+string constants in <code>ui/src/lib/**/*.ts</code> (not <code>.svelte</code> files, which the generator does not
+read), and every <code>graphql&lt;…&gt;()</code> call takes its generated result type (or an alias of it) rather
+than a hand-written shape.</li>
+<li>Repository permissions: reads of <code>repo</code> rows for a user must apply the viewer's <code>RepoAccess</code>.
+Clippy rejects the unfiltered <code>RepoStore</code> methods (<code>clippy.toml</code>), and
+<code>scripts/check-repo-sql.py</code> (first step of <code>scripts/dev check</code>, also runnable on its own)
+rejects SQL with <code>FROM repo</code> or <code>JOIN repo</code> outside <code>crates/db</code>. Integration tests
+(<code>crates/*/tests/</code>) are exempt; internal code that acts for no user (repo nodes, workers,
+metrics) and site-admin-only reads are listed in <code>scripts/repo-sql-allow.txt</code> with a reason.
+Reads shown to a viewer go in a <code>RepoStore</code> method that takes the <code>RepoAccess</code>.</li>
+<li>Deployment checks: <code>scripts/test/helm-ct.sh</code> (Helm lint, template, <code>ct install --upgrade</code> on
+kind) and <code>scripts/test/check-monitoring.sh</code> (Prometheus rules and dashboards).</li>
+</ul>
+<h3 id="browser-checks"><a class="anchor" href="#browser-checks" aria-hidden="true">#</a>Browser checks</h3>
+<p><code>ui/e2e/*.cjs</code> are Playwright scripts that drive a real Sourcegull: search, admin pages, code
+navigation, code graph, policies, auto-indexing, executor secrets, bulk changes and specs,
+code host connections, repositories, trends, analytics and updates.
+<code>scripts/test/e2e-ui.sh</code> builds the binary and the UI, creates a fresh database, starts
+<code>sourcegull run --roles=all</code> on port 7090 with one repository (a mirror of this checkout, no GitLab
+needed) and runs the checks. <code>scripts/dev e2e</code> runs it in Docker with nothing installed;
+screenshots go to <code>.e2e-out/</code>. <code>CHECKS=&quot;search admin&quot;</code> runs a subset.</p>
+<p><code>CHECKS=gitea scripts/dev e2e</code> runs <code>ui/e2e/gitea.cjs</code> against a real Gitea (compose service
+<code>gitea</code>, profile <code>gitea</code>, a pinned <code>gitea/gitea</code> image with SQLite). It is not in the default
+run. <code>scripts/dev e2e</code> first recreates Gitea empty with <code>scripts/dev gitea up</code>, which adds the
+site administrator <code>root</code> (password <code>Jk5r-Tw2q-Vb7n</code>); the check then seeds it through the API
+(two users, a private repository only one of them can read, an OAuth2 application), adds a
+Gitea connection with <code>authorization: {identityProvider: {type: &quot;oauth&quot;}}</code> and a <code>gitea</code>
+sign-in provider, signs in as each user through Gitea, and checks search, the file page and
+MCP <code>read_file</code> for each, and that removing the collaborator on Gitea followed by a
+permissions sync revokes access. Gitea answers as <code>http://gitea:3000</code> inside the containers and
+on <code>127.0.0.1:3000</code> (<code>SOURCEGULL_GITEA_PORT</code>) on the host; <code>scripts/dev gitea down</code> removes it.</p>
+<h3 id="readme-media"><a class="anchor" href="#readme-media" aria-hidden="true">#</a>README media</h3>
+<p><code>scripts/dev media</code> makes the search animation and the code navigation screenshots in the README
+(<code>docs/assets/readme-*.webp</code>). <code>scripts/readme-media.sh</code> starts the binary of a released image
+(<code>SOURCEGULL_MEDIA_IMAGE</code>, default <code>ghcr.io/sourcegull/sourcegull:latest</code>) on a fresh database,
+mirrors public GitHub repositories (<code>REPOS</code>) into it without a connection, waits until they are
+indexed, and <code>scripts/readme-media.cjs</code> takes screenshots in Chromium, in the light and dark
+themes: code navigation, and one frame per keystroke of a search, which ffmpeg turns into an
+animated WebP.
+For UI changes that are not released yet, build an image of the checkout first:
+<code>scripts/image-build.sh --test -f deploy/docker/Dockerfile --load -t sourcegull/sourcegull:media .</code>,
+then <code>SOURCEGULL_MEDIA_IMAGE=sourcegull/sourcegull:media scripts/dev media</code>. The mirrors stay in
+<code>.e2e-out/mirrors/</code> for the next run. <code>KEEP=1</code> (with <code>docker compose --profile e2e run</code>) keeps the instance running, to rerun the browser script against it.</p>
+<h2 id="benchmarks"><a class="anchor" href="#benchmarks" aria-hidden="true">#</a>Benchmarks</h2>
+<p>Search performance is measured end to end, as a user sees it: from the HTTP request to the last
+streamed result.</p>
+<ul>
+<li><strong>Corpora</strong> (<code>scripts/bench/corpus.py</code>, <code>scripts/dev corpus list|fetch|verify|path &lt;name&gt;</code>):
+<code>tiny</code>, <code>small-repos</code> (20,000 small repositories), <code>gitlab-dist</code>, <code>linux</code>, <code>linux-full</code> and
+<code>mixed-10g</code>. Public repositories are pinned to a tag and commit; synthetic ones are generated
+deterministically, and every corpus is checked against a manifest. They live under
+<code>$SOURCEGULL_CORPUS_DIR</code> (default <code>~/.cache/sourcegull-corpora</code>).</li>
+<li><strong>Search</strong> (<code>scripts/dev bench-search --corpus &lt;name&gt;</code>, <code>scripts/bench/search.sh</code>): builds
+Sourcegull (<code>PROFILE=release</code> for an optimized build), indexes the corpus into a private database,
+and runs the corpus's query set against <code>/.api/search/stream</code>, reporting latency percentiles
+per query class (selective, common, regexp, unindexed, …). <code>OUT=&lt;file&gt;</code> keeps the raw JSON.</li>
+<li><strong>Index build</strong> (<code>scripts/dev scripts/bench/index-build.sh [threads] [reps]</code>): build
+throughput on pinned corpora (a Go release, a synthetic 100 MB tree, and the Linux kernel with
+<code>LARGE=1</code>), with a phase breakdown and full builds with and without symbols.</li>
+</ul>
+<p>Compare runs on the same machine; numbers from different hosts are not comparable.</p>
+<h2 id="migrations"><a class="anchor" href="#migrations" aria-hidden="true">#</a>Migrations</h2>
+<p>During a rolling upgrade the previous release runs against the new schema, so a change is made
+in steps (expand, migrate, contract): add the new column or value, move the code to it, and
+remove the old column or value one release after the code stopped using it, never in the
+migration that replaces it. <code>scripts/dev test-upgrade</code> checks this in two ways:</p>
+<ul>
+<li><code>scripts/test/upgrade.sh contract</code> applies the previous release's migrations and this
+checkout's to scratch databases and fails when a column, table or value allowed by a CHECK
+constraint is gone while the previous release's code still names it with its table. It needs
+only Docker and runs in seconds. A removal it flags wrongly (a name left in a comment) goes in
+<code>scripts/test/upgrade/contract-allow.txt</code>.</li>
+<li>After the upgrade to this checkout, the Compose test starts the previous release's image on
+the new schema, without running its migrations, and runs the same data and search checks.</li>
+</ul>
+<p>The previous release is the newest release tag, else the commit the branch started from;
+<code>SOURCEGULL_UPGRADE_PREVIOUS</code> picks another ref. The Compose and Helm upgrade tests start from
+the second newest release tag (the newest while there is only one; <code>SOURCEGULL_UPGRADE_FROM</code>
+picks another ref) and skip until the first release is tagged.</p>
+<h2 id="resource-limits"><a class="anchor" href="#resource-limits" aria-hidden="true">#</a>Resource limits</h2>
+<p>Local builds and tests are capped so they cannot exhaust the host: the dev containers
+(<code>compose.yaml</code>) get <code>SOURCEGULL_DEV_CPUS</code> (4) cores and <code>SOURCEGULL_DEV_MEMORY</code> (8g) without swap,
+and every local image build goes through <code>scripts/image-build.sh</code>, a buildx builder with the same
+kind of limits, 3 rustc jobs and thin LTO. A build that needs more fails with an out-of-memory
+error; raise the limit in <code>.env</code> (and <code>docker buildx rm sourcegull-limited</code> for the builder)
+instead of building without it. The release workflow builds the published images the same way
+(thin LTO, 16 codegen units), within the runner's memory.</p>
+<p>For an image to try a change in (a local Compose or Kubernetes install), use
+<code>scripts/image-build.sh --test …</code>: it builds without LTO and with 256 codegen units. The UI is
+embedded in the binary, so even a CSS or image change relinks it, and with LTO that link takes most
+of a build. A <code>--test</code> image is a little slower and larger; measure performance only with the
+default settings, as released.</p>
+<h2 id="secret-scanning"><a class="anchor" href="#secret-scanning" aria-hidden="true">#</a>Secret scanning</h2>
+<p><code>scripts/gitleaks.sh</code> runs gitleaks in Docker with <code>.gitleaks.toml</code>: the default rules, private
+IPv4 addresses (use documentation addresses such as <code>10.0.0.1</code> or <code>192.168.1.10</code> in examples
+and tests), and an allowlist of the test fixtures. Install the pre-commit hook once per clone:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>git<span class="w"> </span>config<span class="w"> </span>core.hooksPath<span class="w"> </span>scripts/hooks
+</code></pre></div>
+<p>Names that must not be published, such as internal host names, go as <code>[[rules]]</code> in
+<code>.git/info/gitleaks.toml</code>, which every worktree shares and which is never committed; the script
+adds them to <code>.gitleaks.toml</code>. The release workflow
+scans the whole history before it builds.</p>
+<h2 id="releases"><a class="anchor" href="#releases" aria-hidden="true">#</a>Releases</h2>
+<p>A release is one action: <strong>Actions → Release → Run workflow</strong> on <code>main</code>, with the version
+<strong>bump</strong> (minor, patch or major; from a pre-release, any bump gives its release) or an exact
+<strong>version</strong> (<code>X.Y.Z-rc.1</code> for a pre-release). <code>.github/workflows/release.yml</code> runs on the
+self-hosted runner (labels <code>self-hosted</code>, <code>linux</code>):</p>
+<ol>
+<li>scans the history for secrets;</li>
+<li>sets the version with <code>scripts/release-version.sh</code> and commits it as &quot;Release X.Y.Z&quot; on top
+of <code>main</code>: the workspace version (<code>Cargo.toml</code>, <code>Cargo.lock</code>), the UI package, <code>ARG VERSION</code>
+in the Dockerfile, <code>SOURCEGULL_VERSION</code> in the Compose files, <code>.env.example</code> and the upgrade
+guide, the chart's <code>appVersion</code> and a patch bump of its <code>version</code> (unless the chart version
+changed since the previous release already) with a row in the chart README, and, for a
+release that is not a pre-release, <code>crates/db/schema/X.Y.Z.json</code> and its entry in <code>RELEASES</code>
+(<code>crates/db/src/upgrade.rs</code>) for <code>migrate upgrade</code>;</li>
+<li>checks the chart (<code>scripts/test/helm-ct.sh template</code>), builds the linux/amd64 images, runs
+<code>scripts/test/release-smoke.sh</code> (which also checks the migrated schema against the new
+version's description with <code>migrate drift</code>) and the Gitea browser check against the runtime
+image (<code>SOURCEGULL_E2E_IMAGE=&lt;image&gt; CHECKS=gitea scripts/dev e2e</code>);</li>
+<li>pushes <code>ghcr.io/sourcegull/sourcegull</code> and <code>ghcr.io/sourcegull/gull</code>, pushes the Helm chart to
+<code>oci://ghcr.io/sourcegull/charts</code> when its <code>version</code> is not published yet, and signs them;</li>
+<li>pushes the release commit to <code>main</code> together with the <code>vX.Y.Z</code> tag, and creates the GitHub
+release with the Compose bundle (<code>sourcegull-compose.tar.gz</code>, the files of <code>deploy/docker/</code> a
+host needs) attached.</li>
+</ol>
+<p>Nothing is published when <code>main</code> moved after the run started; run it again then. With
+<strong>publish</strong> unchecked it runs steps 1 to 3 and pushes nothing. <code>scripts/release-version.sh &lt;bump|version&gt;</code> makes the same changes in a checkout, to look at them before a release.</p>
+<p>Builds reuse a persistent builder on the runner (<code>sourcegull-release</code>): its state volume keeps the
+image layers and the cache mounts (cargo's <code>target/</code>, named after the Rust version, the crate
+sources and npm's cache), so a release recompiles only the crates that changed. Garbage
+collection (<code>.github/buildkitd.toml</code>) keeps the store under 30 GB, least recently used first.</p>
+<p>The runner accepts only this repository's workflows from <code>main</code> (the organization's runner
+group lists them), so workflows added or changed on other branches or in pull requests cannot
+run on it; the other workflows also run by hand, from <code>main</code>.</p>
+<h2 id="conventions"><a class="anchor" href="#conventions" aria-hidden="true">#</a>Conventions</h2>
+<ul>
+<li>Run <code>scripts/dev check</code> before committing: <code>scripts/check-repo-sql.py</code>, <code>cargo fmt --all --check</code>, <code>scripts/check-test-modules.sh</code>, <code>cargo clippy --workspace --all-targets -- -D warnings</code>, <code>svelte-check</code>, <code>npm run format:check</code> and the UI tests must pass.</li>
+<li>A crate with several integration test files builds them as one binary, <code>integration</code>
+(<code>tests/main.rs</code> declares each file as a module; the crate sets <code>autotests = false</code>). Declare
+a new file there, and run one file's tests with <code>cargo test -p &lt;crate&gt; --test integration &lt;file&gt;::</code>. Dev builds keep line tables only, which keeps the test binaries small.</li>
+<li>Keep <code>Cargo.lock</code> and <code>ui/package-lock.json</code> in sync with the manifests (<code>--locked</code> builds).</li>
+<li>Never edit an applied migration in <code>crates/db/migrations/</code>: migrations are checksummed. Add a
+new one, keeping the schema of the previous release working (<a href="#migrations">migrations</a>).</li>
+<li>Comments explain what code does and why; public items have doc comments.</li>
+<li>Dashboards and alerts are generated: change <code>crates/monitoring</code> and run
+<code>sourcegull monitoring generate --repo .</code> to update <code>deploy/</code> and <code>docs/observability/</code>.</li>
+<li>Metric names are constants in <code>sourcegull_types::metric_names</code>, used by the code that records
+them and checked against every dashboard query (<code>crates/monitoring/tests/generated.rs</code>); a
+new metric gets a constant there, not a string literal.</li>
+</ul>
+<h2 id="graphql-by-domain-adding-or-moving-a-domain"><a class="anchor" href="#graphql-by-domain-adding-or-moving-a-domain" aria-hidden="true">#</a>GraphQL by domain: adding or moving a domain</h2>
+<p>The GraphQL API is split so that editing one domain's resolvers rebuilds that domain's crate,
+the schema assembly and the binary, not the rest of the API:</p>
+<ul>
+<li><code>crates/graphql-core</code> (<code>sourcegull-graphql-core</code>) holds what every resolver needs: <code>context</code>
+(<code>Services</code>, <code>Viewer</code>, <code>codes</code>, <code>error</code>, <code>access_error</code>, <code>db_error</code>, <code>require_viewer</code>,
+<code>require_site_admin</code>, <code>repo_access</code>, <code>page_size</code>, <code>to_int</code>, <code>validation</code>), <code>pagination</code>
+(<code>PageInfo</code>, <code>ConnectionPageInfo</code>, <code>PageArgs</code>, cursors), <code>ids</code> (the node kinds and ID parsers of
+users, organizations, namespaces and repositories), <code>events::log_backend</code>,
+<code>repo::{require_reader, load_readable}</code>, <code>EmptyResponse</code>, <code>declared</code> (the read-only guards of
+objects the configuration-as-code files own), <code>git::{git_error, BLOB_CONTENT_MAX_BYTES}</code>,
+<code>execution::ExecutionLogEntryNode</code> (executor steps), <code>audit::record</code> (security events), the
+value types several domains return (<code>diff::{DiffStat, FileDiffHunk}</code>,
+<code>codehost::{ExternalServiceKindGql, ExternalLink}</code>), the <code>Node</code> interface and the node loader
+registry (<code>node</code>), a feature's part of the schema (<code>feature::GraphqlFeature</code>) and the
+late-bound references to shared types (<code>shared</code>). It depends on no domain crate.</li>
+<li>A domain's GraphQL lives in <code>crates/&lt;domain&gt;-graphql</code> (<code>sourcegull-&lt;domain&gt;-graphql</code>, for
+example <code>crates/insights-graphql</code>). It depends on <code>sourcegull-graphql-core</code> and its domain crate,
+never on <code>sourcegull-graphql</code> or another domain's GraphQL crate. A separate crate rather than a
+<code>graphql</code> module in the domain crate keeps the engine (used by workers and HTTP routes) out of
+the rebuild.</li>
+<li><code>crates/graphql</code> (<code>sourcegull-graphql</code>) assembles the schema: the shared types (<code>User</code>, <code>Org</code>,
+<code>Repository</code>, git types), <code>node(id:)</code>, the core domains, and the merged <code>QueryRoot</code> /
+<code>MutationRoot</code>, which are generic over the feature list: the core fields, then the
+features'. <code>build_schema::&lt;F&gt;</code>, <code>sdl::&lt;F&gt;</code> and <code>routes::&lt;F&gt;</code> take the list. Its
+<code>crate::context</code> and <code>crate::pagination</code> are re-exports of <code>sourcegull-graphql-core</code>, so its
+modules import them as before.</li>
+<li><code>crates/sourcegull/src/features.rs</code> lists the features: <code>all()</code> (routes, workers, singletons:
+<code>sourcegull_feature::Feature</code>) and <code>Graphql</code>, a tuple of the features' <code>GraphqlFeature</code>s, in the
+order of their root fields. <code>graphql_schema</code>, <code>graphql_routes</code>, <code>graphql_sdl</code> and
+<code>install_auto_applier</code> build with that list; the server and every test that needs the whole
+schema (<code>crates/graphql/tests</code>, the executor, CLI and search jobs tests, which have <code>sourcegull</code>
+as a dev-dependency) use them.</li>
+</ul>
+<p><strong>Adding a feature.</strong> Write the domain crate (<code>crates/&lt;feature&gt;</code>, its store and engine) and, if
+it has an API, <code>crates/&lt;feature&gt;-graphql</code>. In the domain crate, implement
+<code>sourcegull_feature::Feature</code> for its routes, queue workers and singletons; in the GraphQL crate,
+implement <code>sourcegull_graphql_core::feature::GraphqlFeature</code> on a unit struct (by convention in
+<code>src/feature.rs</code>, for example <code>sourcegull_monitors_graphql::MonitorsGraphql</code>):</p>
+<ul>
+<li><code>type Query</code> / <code>type Mutation</code>: the feature's root objects; several objects are merged with
+<code>#[derive(MergedObject, Default)]</code> into one (<code>OwnFeatureQuery(TeamsQuery, OwnQuery)</code>; give it
+a name no GraphQL type has), and <code>MergedObjectTail</code> stands for none;</li>
+<li><code>names()</code>: the feature's name;</li>
+<li><code>register_types</code>: <code>register_node::&lt;T&gt;(registry)</code> for each object type that implements <code>Node</code>
+(and any type no root field reaches);</li>
+<li><code>node_loaders</code>: <code>registry.add(node_loaders::&lt;Node&gt;())</code>, the loaders of its node kinds, with
+<code>impl From&lt;DomainNode&gt; for Node</code> (<code>Node::new(object)</code> for each variant).</li>
+</ul>
+<p>Then add one line to each list in <code>crates/sourcegull/src/features.rs</code> (<code>all()</code> and <code>Graphql</code>), the
+crates to the root <code>Cargo.toml</code> and to <code>crates/sourcegull/Cargo.toml</code>, and extend the expected names
+and node kinds in <code>crates/sourcegull/tests/features.rs</code>. Nothing in <code>crates/graphql</code>,
+<code>server.rs</code> or <code>worker.rs</code> changes. Fields the feature adds to a shared type (<code>User.monitors</code>)
+are reverse fields (below) and do go into <code>crates/graphql</code>. A feature's root fields come after
+the core ones, in list order, so a new feature adds a block at the end of <code>QueryRoot</code> /
+<code>MutationRoot</code> in <code>ui/schema.graphql</code>.</p>
+<p><strong>Moving a domain.</strong> <code>git mv crates/graphql/src/&lt;domain&gt;* crates/&lt;domain&gt;-graphql/src/</code>, add
+the crate to the root <code>Cargo.toml</code> (<code>[workspace.dependencies]</code>) and as a dependency of
+<code>sourcegull-graphql</code>, and put <code>use sourcegull_graphql_core::{context, pagination};</code> at the crate root so
+<code>crate::context::…</code> paths keep working. Then replace every remaining <code>crate::</code> path into
+<code>sourcegull-graphql</code>: helpers come from <code>sourcegull-graphql-core</code> (move a helper there when two crates
+need it, and re-export it from its old place), shared types become references (below). A
+<code>RepositoryNode</code> that a module only carries as data becomes a <code>sourcegull_types::Repo</code> (loaded with
+<code>repo::load_readable</code>), and a single git read needs no <code>RepoHandle</code>:
+<code>GitReader::new(services(ctx)?.repo_clients.clone(), &amp;repo)</code>. Remove the module's query and
+mutation objects from <code>QueryRoot</code> / <code>MutationRoot</code> and its node types from <code>node.rs</code>, and
+register the crate as a feature (above); its root fields move to the features' block, so
+regenerate <code>ui/schema.graphql</code> (<code>SOURCEGULL_UPDATE_SCHEMA=1 cargo test -p sourcegull-graphql --test schema_file</code>) and the UI types (<code>npm run graphql-types</code>), and check that only field order
+changed. Integration tests stay in <code>crates/graphql/tests</code>,
+since they need the whole schema. If a moved file is listed in
+<code>scripts/repo-sql-allow.txt</code>, update its path. Code that runs queries on the built schema
+(<code>batches::auto_apply</code>) stays in <code>sourcegull-graphql</code>, in a module that re-exports the domain
+crate (<code>pub use sourcegull_batches_graphql::*;</code>) so its old paths keep working.</p>
+<p><strong>Returning a shared type.</strong> A domain crate cannot name <code>UserNode</code>, so it returns
+<code>sourcegull_graphql_core::shared::UserRef(user)</code> (also <code>OrgRef</code>, <code>RepositoryRef</code>), holding the
+loaded row. A reference is an output type with the real type's GraphQL name; it registers
+nothing, and when resolved it hands the row to the <code>SharedTypes</code> resolver that <code>sourcegull-graphql</code>
+installs as schema data, which builds the full type and resolves the selection on it. The
+schema is unchanged: <code>sourcegull-graphql</code> registers the real types in <code>shared::register</code>, so each
+name has one definition. To add a reference (for example <code>NodeRef</code> or a git type), add a
+<code>shared_ref!</code> line and a <code>SharedTypes</code> method in <code>crates/graphql-core/src/shared.rs</code>, implement
+it in <code>crates/graphql/src/shared.rs</code> and register the real type there. Check with
+<code>cargo test -p sourcegull-graphql --test integration schema_file::</code>: <code>ui/schema.graphql</code> must not change.</p>
+<p>An interface whose implementations are shared types (<code>Namespace</code> = <code>User</code> | <code>Org</code>) gets a
+reference the same way: <code>NamespaceRef</code> holds a <code>NamespaceValue</code> enum of the loaded rows, and
+the assembly resolves it on the real interface (<code>NamespaceNode</code>). A reference cannot be a
+variant of a union or interface that a domain crate derives (the derives need the variant to
+be a real object), so such a union or interface stays in the assembly and the domain crate
+returns a reference to it (bulk change previews return <code>File2Ref</code>, whose <code>File2Data</code> is a
+<code>GitBlobData</code> or a <code>VirtualFileData</code> with its content loader; <code>File2</code> and <code>VirtualFile</code> are in
+<code>crates/graphql/src/file2.rs</code>). A union that mixes a shared type and a domain type (<code>Owner</code> =
+<code>Person</code> | <code>Team</code>) cannot stay in the assembly as a whole reference, since <code>sourcegull-graphql-core</code>
+cannot name the domain type; the domain crate implements it by hand instead
+(<code>sourcegull_own_graphql::ownership::Owner</code>): <code>create_type_info</code> registers a <code>MetaType::Union</code>
+with the members' names, <code>introspection_type_name</code> names the member, and <code>resolve</code> hands the
+union's selection set to the member (<code>PersonRef</code> or <code>TeamNode</code>), which handles <code>__typename</code>
+and fragments on either member as a derived union does. Loaders that build a reference
+go in <code>sourcegull-graphql-core</code> (<code>shared::load_namespace</code>); the assembly maps their value to its
+own type.</p>
+<p>A domain that works on a git location does not take the assembly's git types: it takes the
+plain parts it needs, and the assembly builds them from its own type. Ownership takes an
+<code>OwnedPath</code> (the repository, its <code>GitReader</code>, the commit, the revision it was reached by and
+the path), which <code>EntryBase::owned_path</code> builds for <code>GitBlob.ownership</code>, <code>GitTree.ownership</code>
+and <code>GitCommit.ownership</code>; a CODEOWNERS file in the repository comes back as a <code>GitBlobData</code>
+that keeps that revision for its URL.
+Registering such an interface late (in <code>shared::register</code>) can change the order in which a
+type lists its interfaces in the SDL; register it from the field that reached it before:
+<code>User.teams</code> returns <code>UserTeams</code>, which registers <code>TeamMember</code> before <code>TeamConnection</code>; the
+<code>ownership</code> fields return <code>Ownerships</code>, which registers <code>File2</code> before <code>OwnershipConnection</code>;
+<code>User.executorSecrets</code> and <code>Org.executorSecrets</code> return <code>NamespaceExecutorSecrets</code>, which
+registers <code>Namespace</code> before <code>ExecutorSecretConnection</code>.</p>
+<p>Every reference resolves through <code>SharedTypes</code>, including the ones bulk changes and
+ownership return: <code>Person</code>, <code>Executor</code> (whose type is
+<code>sourcegull_executors_graphql::executors::ExecutorNode</code>), <code>GitRef</code> (<code>BranchRef</code>, a branch at a
+commit), <code>GitBlob</code>, <code>VirtualFile</code> and <code>File2</code>. A reference may name a type of another domain
+crate: the assembly depends on both and registers that type.</p>
+<p><strong>Reverse fields.</strong> A field on a shared type that returns a domain type (<code>User.monitors</code>,
+<code>Repository.ingestedCodeowners</code>, <code>GitBlob.ownership</code>) stays on the shared type in <code>sourcegull-graphql</code> and calls a
+public function of the domain's GraphQL crate that returns the domain's type; the assembly
+depends on the domain crates, so this direction needs nothing else.</p>
+<p><strong>Node lookup.</strong> <code>Node</code> (<code>sourcegull_graphql_core::node::Node</code>) is a hand-written interface type,
+not a derived enum: it holds any object (<code>Node::new(object)</code>), resolves the selection on it and
+names it in <code>__typename</code>. Its implementations are registered at schema build:
+<code>register_node::&lt;T&gt;</code> registers <code>T</code>, adds <code>implements Node</code> to it and adds it to the
+interface's possible types. The core types (<code>User</code>, <code>Org</code>, <code>Repository</code>, …) are registered in
+<code>crates/graphql/src/node.rs</code> (<code>CoreNodes</code>) and matched in <code>node(id:)</code>; a feature registers its
+own in <code>GraphqlFeature::register_types</code>. Since every implementation is registered after the
+roots and shared types, <code>Node</code> comes last in each type's <code>implements</code> list. The domain crate
+exports an enum of its node types (<code>InsightsNode</code>), or uses its node type directly when it has
+one (<code>MonitorNode</code>), and <code>node_loaders::&lt;N: From&lt;InsightsNode&gt;&gt;() -&gt; [NodeLoader&lt;N&gt;; _]</code>, the
+loaders of its node kinds; its <code>GraphqlFeature::node_loaders</code> adds them to the schema's
+<code>NodeRegistry</code> (schema data), which <code>node(id:)</code> consults before the kinds it matches itself. A
+kind registered twice panics when the schema is built.</p>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/docs/development.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/architecture/"><span>Previous</span><b>Architecture</b></a><a class="next" href="/docs/roadmap/"><span>Next</span><b>Roadmap</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#in-docker-nothing-to-install-but-docker">In Docker (nothing to install but Docker)</a></li><li class="l3"><a href="#seeing-a-ui-change">Seeing a UI change</a></li><li class="l3"><a href="#development-gitlab">Development GitLab</a></li><li class="l3"><a href="#vs-code">VS Code</a></li><li class="l2"><a href="#on-the-host">On the host</a></li><li class="l2"><a href="#tests">Tests</a></li><li class="l3"><a href="#browser-checks">Browser checks</a></li><li class="l3"><a href="#readme-media">README media</a></li><li class="l2"><a href="#benchmarks">Benchmarks</a></li><li class="l2"><a href="#migrations">Migrations</a></li><li class="l2"><a href="#resource-limits">Resource limits</a></li><li class="l2"><a href="#secret-scanning">Secret scanning</a></li><li class="l2"><a href="#releases">Releases</a></li><li class="l2"><a href="#conventions">Conventions</a></li><li class="l2"><a href="#graphql-by-domain-adding-or-moving-a-domain">GraphQL by domain: adding or moving a domain</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

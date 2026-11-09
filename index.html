@@ -7,7 +7,9 @@
   <meta name="description" content="Self-hosted code search and code intelligence for GitLab, GitHub and Gitea, written in Rust. Every feature is open source under Apache-2.0. There is no paid tier." />
   <meta property="og:title" content="Sourcegull" />
   <meta property="og:description" content="Find code across thousands of repositories in milliseconds. For you and your agents." />
-  <meta property="og:image" content="assets/readme-search-light.webp" />
+  <meta property="og:image" content="https://sourcegull.org/assets/readme-search-light.webp" />
+  <meta property="og:url" content="https://sourcegull.org/" />
+  <link rel="canonical" href="https://sourcegull.org/" />
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -37,7 +39,7 @@
         <a href="#features">Features</a>
         <a href="#agents">Agents</a>
         <a href="#install">Install</a>
-        <a href="https://github.com/sourcegull/sourcegull/tree/main/docs">Docs</a>
+        <a href="/docs/">Docs</a>
       </nav>
       <a class="gh" href="https://github.com/sourcegull/sourcegull" aria-label="GitHub"><svg class="ic"><use href="#i-github"/></svg><span>GitHub</span></a>
     </div>
@@ -65,7 +67,7 @@
   </section>
 
   <section class="stats wrap" aria-label="Numbers">
-    <a class="stat" href="https://github.com/sourcegull/sourcegull/blob/main/docs/mcp.md#token-usage"><b>5–70×</b><span>fewer tokens for an agent than cloning and grepping: 5× on a question about one repository, 70× for references to a common name across about 1,400 repositories</span></a>
+    <a class="stat" href="/docs/mcp/#token-usage"><b>5–70×</b><span>fewer tokens for an agent than cloning and grepping: 5× on a question about one repository, 70× for references to a common name across about 1,400 repositories</span></a>
     <a class="stat" href="https://github.com/sourcegull/sourcegull#benchmark-the-same-gitlab-one-product-at-a-time"><b>3 min 21 s</b><span>to make 1,007 repositories (5.2 GB of source) searchable, cloning included, on 6 CPUs</span></a>
     <a class="stat" href="https://github.com/sourcegull/sourcegull#benchmark-the-same-gitlab-one-product-at-a-time"><b>84 ms</b><span>median regex search across all 1,007 of them</span></a>
     <div class="stat"><b>1</b><span>Rust binary; PostgreSQL is the only dependency</span></div>
@@ -185,12 +187,12 @@ docker compose up -d</code></pre>
 
     <h3 class="guides-title">Installing for production</h3>
     <div class="guides">
-      <a class="guide" href="https://github.com/sourcegull/sourcegull/blob/main/docs/install.md#docker-compose">
+      <a class="guide" href="/docs/install/#docker-compose">
         <b>Docker Compose guide</b>
         <span>One host: the production layout with one container per role, upgrades, backups and monitoring.</span>
         <em>Read the guide →</em>
       </a>
-      <a class="guide" href="https://github.com/sourcegull/sourcegull/blob/main/docs/install.md#kubernetes-helm">
+      <a class="guide" href="/docs/install/#kubernetes-helm">
         <b>Kubernetes (Helm) guide</b>
         <span>Larger installs and several repo nodes: size presets, an external PostgreSQL and every chart value.</span>
         <em>Read the guide →</em>
@@ -203,7 +205,7 @@ docker compose up -d</code></pre>
     <p>Sourcegull is Apache-2.0. There is no paid tier, and there will not be one.</p>
     <div class="actions">
       <a class="btn primary" href="https://github.com/sourcegull/sourcegull"><svg class="ic"><use href="#i-github"/></svg>Star on GitHub</a>
-      <a class="btn" href="https://github.com/sourcegull/sourcegull/tree/main/docs">Read the docs</a>
+      <a class="btn" href="/docs/">Read the docs</a>
     </div>
   </section>
 
@@ -212,10 +214,10 @@ docker compose up -d</code></pre>
       <a class="brand" href="#top"><img src="favicon.png" width="22" height="22" alt="" /><span>Source<b>gull</b></span></a>
       <nav aria-label="Links">
         <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
-        <a href="https://github.com/sourcegull/sourcegull/tree/main/docs">Docs</a>
+        <a href="/docs/">Docs</a>
         <a href="https://github.com/sourcegull/sourcegull/releases">Releases</a>
-        <a href="https://github.com/sourcegull/sourcegull/blob/main/docs/mcp.md">MCP</a>
-        <a href="https://artifacthub.io/packages/search?ts_query_web=sourcegull">Artifact Hub</a>
+        <a href="/docs/mcp/">MCP</a>
+        <a href="https://artifacthub.io/packages/helm/sourcegull/sourcegull">Artifact Hub</a>
         <a href="https://github.com/sourcegull/sourcegull/blob/main/LICENSE-APACHE">Apache-2.0</a>
       </nav>
     </div>

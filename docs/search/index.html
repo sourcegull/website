@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Search · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/" aria-current="page">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="search">Search</h1>
+<p>Sourcegull searches file contents, paths, symbols, repositories, commits and diffs across every
+repository you can read. Results stream in as they are found, with filter suggestions (facets)
+in the sidebar and an aggregation view (counts by repository, path, author, …).</p>
+<p>The default branch of each repository is indexed, plus any branches listed in the site
+configuration's <code>search.index.branches</code> and, with <code>search.index.recentBranches</code>, each
+repository's recently updated branches. Other revisions (branches, tags, commits) are searched
+directly from git, more slowly, with the same results.</p>
+<p>Binary files and files over 1 MiB are found by path but not by content. To search generated or
+other large files by content, list their paths in <code>search.index.alwaysIndex</code> (files up to
+16 MiB):</p>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="s2">&quot;search.index.alwaysIndex&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="s2">&quot;*&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;**/schema.graphql&quot;</span><span class="p">],</span><span class="w">              </span><span class="c1">// every repository</span>
+<span class="w">  </span><span class="s2">&quot;gitlab.com/acme/api&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;gen/**/*.ts&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Patterns match the whole path from the repository root: <code>*</code> and <code>?</code> stay within a directory,
+<code>**</code> spans any number of them, <code>{a,b}</code> and <code>[abc]</code> work as in a shell.</p>
+<h2 id="patterns"><a class="anchor" href="#patterns" aria-hidden="true">#</a>Patterns</h2>
+<p>A query is a mix of <strong>patterns</strong> (text to find) and <strong>filters</strong> (<code>field:value</code>). How patterns
+are read depends on the pattern type, which you choose with the toggle in the search box,
+or with <code>patterntype:</code> in the query. The <code>search.defaultPatternType</code>
+<a href="/docs/configuration/#settings-and-the-settings-cascade">setting</a> sets what the search boxes start
+with; a link to a search keeps its own pattern type.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Behaviour</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>keyword</code> (default)</td>
+<td>Every term must occur in the file, in any order. <code>&quot;quoted phrases&quot;</code> (or <code>'...'</code>) match exactly, <code>/.../</code> is a regular expression. Ranked with BM25.</td>
+<td><code>http client timeout</code>, <code>&quot;new Server(&quot; lang:java</code>, <code>/fn \w+_test/</code></td>
+</tr>
+<tr>
+<td><code>standard</code></td>
+<td>The pattern is literal text, spaces included; <code>/.../</code> is a regular expression.</td>
+<td><code>foo(bar, baz)</code></td>
+</tr>
+<tr>
+<td><code>literal</code></td>
+<td>The pattern is literal text, spaces included.</td>
+<td>`a</td>
+</tr>
+<tr>
+<td><code>regexp</code></td>
+<td>The pattern is a regular expression; <code>&quot;...&quot;</code> is a literal.</td>
+<td><code>func\s+New\w+\(</code></td>
+</tr>
+<tr>
+<td><code>structural</code></td>
+<td>The pattern is a code template with holes that match balanced code.</td>
+<td><code>fmt.Errorf(:[msg], err)</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Whitespace inside a phrase matches as written: <code>foo  bar</code> (standard or literal) and
+<code>&quot;foo  bar&quot;</code> (keyword) find two spaces, not one, and a tab finds a tab. Empty delimiters are
+text: <code>&quot;&quot;</code>, <code>''</code> and <code>//</code> find those two characters.</p>
+<p>Matching is case-insensitive unless the query has <code>case:yes</code>.</p>
+<h3 id="structural-patterns"><a class="anchor" href="#structural-patterns" aria-hidden="true">#</a>Structural patterns</h3>
+<p>A structural template matches source text whose brackets balance the same way, ignoring
+differences in whitespace and comments:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Hole</th>
+<th>Matches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>:[x]</code> or <code>...</code></td>
+<td>anything, including nothing and line breaks, with balanced <code>()</code>, <code>[]</code>, <code>{}</code></td>
+</tr>
+<tr>
+<td><code>:[[x]]</code></td>
+<td>an identifier (letters, digits, <code>_</code>)</td>
+</tr>
+<tr>
+<td><code>:[x.]</code></td>
+<td>a run of non-space characters other than brackets</td>
+</tr>
+<tr>
+<td><code>:[x:e]</code></td>
+<td>an expression: characters and balanced groups up to whitespace, e.g. <code>a.b(c, d)[0]</code></td>
+</tr>
+<tr>
+<td><code>:[x\n]</code></td>
+<td>the rest of the line</td>
+</tr>
+<tr>
+<td><code>:[ x]</code></td>
+<td>spaces and tabs</td>
+</tr>
+<tr>
+<td><code>:[x~regex]</code></td>
+<td>what <code>regex</code> matches</td>
+</tr>
+</tbody>
+</table></div>
+<p>Holes with the same name must match the same text. <code>rule:</code> adds conditions, e.g.
+<code>rule:'where :[a] == :[b]'</code> or <code>where :[x] != &quot;nil&quot;</code>. Structural search runs on indexed
+repositories and does not combine with <code>type:</code> or <code>case:</code>.</p>
+<h2 id="filters"><a class="anchor" href="#filters" aria-hidden="true">#</a>Filters</h2>
+<p>Filters narrow the search. Most filters can be negated with <code>-</code> (<code>-file:_test\.go$</code>) or <code>NOT</code>.</p>
+<h3 id="repositories"><a class="anchor" href="#repositories" aria-hidden="true">#</a>Repositories</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Filter</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo:&lt;regexp&gt;</code> (<code>r:</code>)</td>
+<td>Repositories whose name matches. <code>repo:^gitlab\.example\.com/acme/api$</code> for one repository.</td>
+</tr>
+<tr>
+<td><code>repo:&lt;regexp&gt;@&lt;rev&gt;[:&lt;rev&gt;...]</code></td>
+<td>Search these revisions (branches, tags or commits) of the matched repositories.</td>
+</tr>
+<tr>
+<td><code>rev:&lt;rev&gt;</code> (<code>revision:</code>)</td>
+<td>Revisions to search, for every matched repository.</td>
+</tr>
+<tr>
+<td><code>rev:*refs/heads/*</code></td>
+<td>Every indexed branch (see <a href="#searching-all-branches">Searching all branches</a>). <code>*!refs/heads/old*</code> leaves branches out.</td>
+</tr>
+<tr>
+<td><code>rev:at.time(&lt;time&gt;[, &lt;ref&gt;])</code></td>
+<td>The commit that was at the tip of a branch at a point in time, e.g. <code>rev:at.time(2026-01-01)</code>.</td>
+</tr>
+<tr>
+<td><code>context:&lt;name&gt;</code></td>
+<td>A <a href="#search-contexts">search context</a>; <code>global</code> (all repositories) by default.</td>
+</tr>
+<tr>
+<td><code>fork:yes|no|only</code></td>
+<td>Include forks (excluded by default).</td>
+</tr>
+<tr>
+<td><code>archived:yes|no|only</code></td>
+<td>Include archived repositories (see <a href="#archived-repositories">Archived repositories</a>).</td>
+</tr>
+<tr>
+<td><code>visibility:any|public|private</code></td>
+<td>Repository visibility.</td>
+</tr>
+<tr>
+<td><code>index:yes|no|only</code></td>
+<td>Use indexed and unindexed revisions (default), only unindexed ones, or only the index.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Repository predicates (the value is a function call):</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Predicate</th>
+<th>Repositories that …</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo:has.file(path:&lt;regexp&gt; content:&lt;regexp&gt;)</code></td>
+<td>contain a file with this path and/or content</td>
+</tr>
+<tr>
+<td><code>repo:has.path(&lt;regexp&gt;)</code></td>
+<td>contain a matching path</td>
+</tr>
+<tr>
+<td><code>repo:has.content(&lt;regexp&gt;)</code></td>
+<td>contain matching content</td>
+</tr>
+<tr>
+<td><code>repo:has.commit.after(&lt;time&gt;)</code></td>
+<td>have a commit after the time, e.g. <code>1 month ago</code></td>
+</tr>
+<tr>
+<td><code>repo:has.description(&lt;regexp&gt;)</code></td>
+<td>have a matching description on the code host</td>
+</tr>
+<tr>
+<td><code>repo:has.topic(&lt;topic&gt;)</code></td>
+<td>have a topic on the code host</td>
+</tr>
+<tr>
+<td><code>repo:has.meta(&lt;key&gt;:&lt;value&gt;)</code></td>
+<td>have this <a href="/docs/features/#repository-metadata">metadata</a> pair; <code>repo:has.meta(&lt;key&gt;)</code> matches any value and <code>repo:has.meta(&lt;key&gt;:)</code> a key with no value. Keys and values match exactly (case-sensitive), or as a regexp written <code>/…/</code>, e.g. <code>repo:has.meta(/^team/:/^search/)</code>.</td>
+</tr>
+<tr>
+<td><code>repo:has.tag(&lt;tag&gt;)</code></td>
+<td>have this metadata tag (a key with no value)</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>contains.file</code>, <code>contains.path</code>, <code>contains.content</code> and <code>contains.commit.after</code> are aliases,
+as are <code>repo:has.key(&lt;key&gt;)</code> for <code>repo:has.meta(&lt;key&gt;)</code> and <code>repo:has(&lt;key&gt;:&lt;value&gt;)</code> for
+<code>repo:has.meta(&lt;key&gt;:&lt;value&gt;)</code>. Every repository predicate can be negated (<code>-repo:has.tag(legacy)</code>).</p>
+<h3 id="archived-repositories"><a class="anchor" href="#archived-repositories" aria-hidden="true">#</a>Archived repositories</h3>
+<p>Archived repositories are indexed but left out of results unless a query asks for them:</p>
+<ul>
+<li><code>archived:yes</code> includes them and <code>archived:only</code> searches nothing else.</li>
+<li>A <code>repo:</code> filter that names one repository, such as <code>repo:^gitlab\.example\.com/acme/old$</code>,
+includes it even when it is archived. Add <code>archived:no</code> to leave it out.</li>
+<li>The search page shows how many archived repositories were left out, with a link to include
+them, and has an <strong>Include archived</strong> checkbox that edits <code>archived:yes</code> in the query.</li>
+<li>The <code>search.includeArchived</code> setting ticks that checkbox for searches typed in the search box
+by adding <code>archived:yes</code> to the query, so it stays visible and carries over in shared links.
+It doesn't change links, saved searches, code monitors, insights or the APIs.</li>
+</ul>
+<p>Results from an archived repository carry an <strong>archived</strong> badge in the UI. In the APIs, see
+<a href="#apis">APIs</a>.</p>
+<h3 id="searching-all-branches"><a class="anchor" href="#searching-all-branches" aria-hidden="true">#</a>Searching all branches</h3>
+<p><strong>Include other branches</strong> on the results page adds <code>rev:*refs/heads/*</code>. That filter (or
+<code>repo:acme/api@*refs/heads/*</code>) searches the matched repositories' branches
+<strong>in the index</strong>, and the results say that other branches were not searched. Searching every
+branch of many repositories through git takes minutes, so this form does not do it. A repository
+that has no index yet is searched on its default branch.</p>
+<p>To index the branches people work on, a site admin turns on <strong>Index recently updated branches</strong>
+under Site admin &gt; Site configuration &gt; Search &amp; indexing. It is <code>search.index.recentBranches</code> in
+the site configuration:</p>
+<div class="codeblock"><div class="codebar"><span>jsonc</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="s2">&quot;search.index.recentBranches&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">&quot;maxAge&quot;</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;30d&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;max&quot;</span><span class="o">:</span><span class="w"> </span><span class="mf">20</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>Each repository then also indexes up to <code>max</code> branches (1 to 63) with a commit newer than
+<code>maxAge</code>, newest first (<code>&quot;maxAge&quot;: &quot;0&quot;</code> is no age limit, so only <code>max</code> applies); both have these
+defaults when left out, and the feature is off until the
+key is set. Default branches and <code>search.index.branches</code> are always indexed and do not count
+towards <code>max</code>, and a shard holds at most 64 branches. A push can add a branch; branches that aged
+out leave at the next periodic pass. Adding or dropping a branch rebuilds the repository's shard.</p>
+<p>As a guide, indexes of three real repositories grew 1.4 to 2.1 times at 20 branches and 2.4 to
+3.1 times at 63, depending on how far the branches have diverged. Searches of the default branch
+alone do not slow down.</p>
+<p>A file that is the same on several branches is one result, listing those branches. Its links go to
+the first one, the default branch when it is among them. So one file on 20 branches uses one of
+the search's results, not 20. Versions that differ are separate results. This applies to branches
+served from the index; a revision searched through git has a result of its own.</p>
+<p>To search branches outside the index, name them, or use a <a href="#search-jobs">search job</a>, which
+expands <code>*refs/heads/*</code> against all of a repository's branches.</p>
+<h3 id="files-and-content"><a class="anchor" href="#files-and-content" aria-hidden="true">#</a>Files and content</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Filter</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file:&lt;regexp&gt;</code> (<code>f:</code>, <code>path:</code>)</td>
+<td>Files whose path matches.</td>
+</tr>
+<tr>
+<td><code>lang:&lt;language&gt;</code> (<code>l:</code>, <code>language:</code>)</td>
+<td>Files in a language, e.g. <code>lang:go</code>, <code>lang:typescript</code>.</td>
+</tr>
+<tr>
+<td><code>content:&quot;&lt;text&gt;&quot;</code></td>
+<td>Search contents for this literal text, whatever the pattern type; files must also match the pattern, if any (<code>-content:</code> excludes files with the text). Useful for text that looks like a filter.</td>
+</tr>
+<tr>
+<td><code>file:has.content(&lt;regexp&gt;)</code></td>
+<td>Files that contain a match, while the pattern matches something else.</td>
+</tr>
+<tr>
+<td><code>file:has.owner([&lt;owner&gt;])</code></td>
+<td>Files owned by a user or team (<a href="/docs/features/#code-ownership">code ownership</a>); without an argument, files with any owner.</td>
+</tr>
+<tr>
+<td><code>file:has.contributor(&lt;regexp&gt;)</code></td>
+<td>Files with a commit by a matching author.</td>
+</tr>
+<tr>
+<td><code>case:yes|no</code></td>
+<td>Case-sensitive matching.</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="result-type-and-output"><a class="anchor" href="#result-type-and-output" aria-hidden="true">#</a>Result type and output</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Filter</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type:file</code></td>
+<td>File contents (the default, together with paths and repository names).</td>
+</tr>
+<tr>
+<td><code>type:path</code></td>
+<td>File paths only.</td>
+</tr>
+<tr>
+<td><code>type:symbol</code></td>
+<td>Symbol definitions (functions, types, methods, …) whose name matches.</td>
+</tr>
+<tr>
+<td><code>type:repo</code></td>
+<td>Repositories whose name matches.</td>
+</tr>
+<tr>
+<td><code>type:commit</code></td>
+<td>Commit messages.</td>
+</tr>
+<tr>
+<td><code>type:diff</code></td>
+<td>Lines added or removed by commits.</td>
+</tr>
+<tr>
+<td><code>select:&lt;type&gt;</code></td>
+<td>Show what the results contain instead of the results: <code>repo</code>, <code>file</code>, <code>file.directory</code>, <code>file.path</code>, <code>file.owners</code>, <code>content</code>, <code>symbol</code>, <code>symbol.&lt;kind&gt;</code> (e.g. <code>symbol.function</code>, <code>symbol.class</code>), <code>commit</code>, <code>commit.diff.added</code>, <code>commit.diff.removed</code>.</td>
+</tr>
+<tr>
+<td><code>count:&lt;n&gt;|all</code></td>
+<td>Stop after this many results (default 500; site configuration <code>search.limits.streamingMaxResults</code>).</td>
+</tr>
+<tr>
+<td><code>timeout:&lt;duration&gt;</code></td>
+<td>Search time limit, e.g. <code>30s</code>, <code>1m30s</code> (default 20 s, at most 60 s; site configuration <code>search.limits</code>). At the limit, or when the search is closed, the repo nodes stop their part of it too (content, commit and diff searches, and <code>repo:has.file()</code> checks).</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="commit-and-diff-filters"><a class="anchor" href="#commit-and-diff-filters" aria-hidden="true">#</a>Commit and diff filters</h3>
+<p>These need <code>type:commit</code> or <code>type:diff</code>:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Filter</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>author:&lt;regexp&gt;</code>, <code>committer:&lt;regexp&gt;</code></td>
+<td>Name or email of the author or committer.</td>
+</tr>
+<tr>
+<td><code>message:&lt;regexp&gt;</code> (<code>m:</code>, <code>msg:</code>)</td>
+<td>Commit message.</td>
+</tr>
+<tr>
+<td><code>before:&lt;time&gt;</code> (<code>until:</code>), <code>after:&lt;time&gt;</code> (<code>since:</code>)</td>
+<td>Commit date: <code>2026-01-31</code>, <code>&quot;3 weeks ago&quot;</code>, <code>yesterday</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Example: <code>type:diff repo:acme/api after:&quot;1 week ago&quot; select:commit.diff.added password</code>.</p>
+<h2 id="boolean-operators-and-grouping"><a class="anchor" href="#boolean-operators-and-grouping" aria-hidden="true">#</a>Boolean operators and grouping</h2>
+<ul>
+<li>Terms next to each other are combined: in keyword queries every term must match the file; in
+standard and literal queries, adjacent words are one pattern with the space included.</li>
+<li><code>AND</code>, <code>OR</code> and <code>NOT</code> (any case) combine patterns and filters; <code>AND</code> binds tighter than <code>OR</code>.
+Parentheses group: <code>(foo OR bar) lang:go</code>, <code>repo:a OR (repo:b file:\.md$)</code>.</li>
+<li><code>NOT foo</code> or <code>-file:x</code> excludes.</li>
+<li>In standard and literal queries, balanced parentheses without filters or operators are part
+of the pattern (<code>copyright (c) 2026</code>). A <code>(</code> that is never closed is read as text.</li>
+</ul>
+<h2 id="quoting"><a class="anchor" href="#quoting" aria-hidden="true">#</a>Quoting</h2>
+<ul>
+<li>Filter values containing spaces need quotes: <code>file:&quot;my docs/&quot;</code>, <code>after:&quot;2 weeks ago&quot;</code>.</li>
+<li>In keyword and regexp queries, <code>&quot;...&quot;</code> and <code>'...'</code> are exact literals; escape a quote inside
+with <code>\&quot;</code>.</li>
+<li><code>/.../</code> is a regular expression in keyword and standard queries. Inside it, <code>\/</code> is a slash
+and every other escape is the regular expression's own: <code>/C:\\Users/</code> matches <code>C:\Users</code>.</li>
+<li>To search for text that looks like a filter (<code>foo:bar</code>), quote it or use <code>content:&quot;foo:bar&quot;</code>.
+Unknown fields are treated as text.</li>
+</ul>
+<p>Invalid queries (an unknown value, a repeated <code>count:</code>, a negated filter that cannot be negated,
+<code>author:</code> without <code>type:commit</code>) are reported in the search box before the search runs.</p>
+<h2 id="ranking"><a class="anchor" href="#ranking" aria-hidden="true">#</a>Ranking</h2>
+<p>Results are ordered by score within one search. A file scores by its best match: a match on a
+symbol definition counts most, then a whole-word match, then a partial match, with extra weight
+when every term matches and for matches in the file name. Keyword queries score with BM25 over
+their terms instead. Test, vendored and generated files are scored down. Ties are broken by the
+file's <a href="/docs/code-navigation/#ranking">static rank from the code graph</a>, shallower paths and the
+repository's rank.</p>
+<h2 id="search-contexts"><a class="anchor" href="#search-contexts" aria-hidden="true">#</a>Search contexts</h2>
+<p>A search context is a named set of repositories to search, selected with <code>context:</code> or the
+dropdown in the search box. Create and manage them under <strong>Search contexts</strong> (<code>/contexts</code>):</p>
+<ul>
+<li><strong>Instance contexts</strong> (<code>context:backend</code>) are created by site admins; <strong>user and
+organization contexts</strong> are written <code>context:@alice/frontend</code> or <code>context:@acme/infra</code>.</li>
+<li>A context either <strong>lists repositories</strong> (each with the revisions to search), or is
+<strong>defined by a query</strong> of repository filters, e.g. <code>repo:^gitlab\.example\.com/acme/ fork:no</code>.</li>
+<li>A context is private or public (public instance contexts are created by site admins). You
+can star contexts and choose one as your default.</li>
+</ul>
+<h2 id="saved-searches"><a class="anchor" href="#saved-searches" aria-hidden="true">#</a>Saved searches</h2>
+<p>Save a query from the results page, or under <strong>Saved searches</strong> (<code>/saved-searches</code>). A saved
+search belongs to you or to an organization; it is either secret (visible to you, or to the
+organization's members) or public (visible to every user). To be notified
+of new results, create a <a href="/docs/features/#watches">watch</a> from the query.</p>
+<h2 id="search-jobs"><a class="anchor" href="#search-jobs" aria-hidden="true">#</a>Search jobs</h2>
+<p>A search job (<code>/search-jobs</code>) runs a query <strong>exhaustively</strong> in the background, over every
+repository and revision it names, without the result limit of interactive search: up to a
+million results and one hour per repository revision (<code>search.limits.exhaustiveMaxResults</code>
+and <code>exhaustiveTimeoutSeconds</code>). Use it for audits and exports.</p>
+<ul>
+<li>Create one from the results page (<strong>Create search job</strong>) or the search jobs page.</li>
+<li>Supported queries: one query without <code>OR</code> between filter groups, without <code>select:</code>, file
+predicates, structural patterns or a lone <code>/.*/</code>, returning file, path, commit or diff
+results.</li>
+<li>The job runs with your permissions. Its progress, per-repository status and log are shown on
+the page; it can be cancelled or deleted.</li>
+<li>Results download as JSONL or CSV (<code>/.api/search/export/&lt;id&gt;.jsonl</code>, <code>.csv</code>, and <code>.log</code> for the
+log). Only the creator and site admins see a job. Old jobs are removed after
+<code>searchJobs.retention</code>.</li>
+</ul>
+<h2 id="apis"><a class="anchor" href="#apis" aria-hidden="true">#</a>APIs</h2>
+<ul>
+<li><code>GET /.api/search/stream?q=&lt;query&gt;</code> streams results as server-sent events (matches,
+progress, filters, alerts). A result from an archived repository has <code>&quot;archived&quot;: true</code>; the
+field is omitted otherwise. When archived repositories were left out, the final progress event
+has a <code>skipped</code> entry with reason <code>excluded-archive</code>, their count in its title and
+<code>archived:yes</code> as its suggested query.</li>
+<li>GraphQL <code>search</code>, <code>searchQueryAggregate</code> (aggregations) and the saved search, search context
+and search job types at <code>/.api/graphql</code>.</li>
+<li>The <a href="/docs/mcp/">MCP server</a> exposes search to AI agents. Results from archived repositories end
+in <code>[archived]</code>, and left-out ones are reported in a note.</li>
+</ul>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/docs/search.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/permissions/"><span>Previous</span><b>Permissions and sign-in</b></a><a class="next" href="/docs/code-navigation/"><span>Next</span><b>Code navigation</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#patterns">Patterns</a></li><li class="l3"><a href="#structural-patterns">Structural patterns</a></li><li class="l2"><a href="#filters">Filters</a></li><li class="l3"><a href="#repositories">Repositories</a></li><li class="l3"><a href="#archived-repositories">Archived repositories</a></li><li class="l3"><a href="#searching-all-branches">Searching all branches</a></li><li class="l3"><a href="#files-and-content">Files and content</a></li><li class="l3"><a href="#result-type-and-output">Result type and output</a></li><li class="l3"><a href="#commit-and-diff-filters">Commit and diff filters</a></li><li class="l2"><a href="#boolean-operators-and-grouping">Boolean operators and grouping</a></li><li class="l2"><a href="#quoting">Quoting</a></li><li class="l2"><a href="#ranking">Ranking</a></li><li class="l2"><a href="#search-contexts">Search contexts</a></li><li class="l2"><a href="#saved-searches">Saved searches</a></li><li class="l2"><a href="#search-jobs">Search jobs</a></li><li class="l2"><a href="#apis">APIs</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

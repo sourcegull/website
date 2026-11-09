@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Code navigation · Sourcegull docs</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/" aria-current="page">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="code-navigation">Code navigation</h1>
+<p>When you view a file, Sourcegull offers hover information, <strong>go to definition</strong>, <strong>find
+references</strong> and <strong>find implementations</strong>. Three tiers answer, best first; the first tier with
+data for the position answers (precise references are complemented, see below), and each result
+shows where it came from:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Source</th>
+<th>Precision</th>
+<th>Setup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Precise</td>
+<td>SCIP indexes from a compiler-accurate indexer</td>
+<td>exact, across repositories</td>
+<td>upload indexes from CI, or auto-indexing</td>
+</tr>
+<tr>
+<td>Syntactic</td>
+<td>tree-sitter scopes in the file</td>
+<td>exact for local variables and parameters</td>
+<td>none</td>
+</tr>
+<tr>
+<td>Search-based</td>
+<td>symbol and text search</td>
+<td>heuristic</td>
+<td>none</td>
+</tr>
+</tbody>
+</table></div>
+<p>Precise references are complemented for repositories without precise data. When the symbol
+can be used from other repositories (it is not local to its file), Sourcegull also looks for
+repositories that mention the symbol's package (for Go, a <code>go.mod</code> that requires the module)
+but have no completed index serving their default branch, because they were never indexed or
+their index failed. Search-based references from those repositories follow the precise ones;
+for Go only files that import the symbol's package count. Each reference keeps its provenance,
+and the references panel and API say which repositories answered precisely and which
+search-based, and why. This lookup is limited to 20 repositories and 3 seconds; when either
+limit is reached, the answer says so.</p>
+<p>All navigation runs with the viewer's repository permissions.</p>
+<h2 id="precise-navigation-scip"><a class="anchor" href="#precise-navigation-scip" aria-hidden="true">#</a>Precise navigation (SCIP)</h2>
+<p>Precise navigation reads SCIP indexes produced by
+language-specific indexers (<code>scip-go</code>, <code>scip-typescript</code>, <code>scip-java</code>, <code>scip-python</code>,
+<code>scip-ruby</code>, <code>scip-dotnet</code>, <code>scip-clang</code>, rust-analyzer, …). An index belongs to one commit of
+one repository. Workers process each upload into a code graph file in the blob store and record
+which symbols and packages it defines and uses, so references resolve across repositories.</p>
+<p>For a commit with no index of its own, Sourcegull uses the nearest indexed commit and adjusts
+positions for the lines that changed in between.</p>
+<p>A symbol from another repository is matched by its package and version, as the indexer names
+it (for Go, the module path and the version required in <code>go.mod</code>). When a library is indexed at
+one version and its users import others (the library is indexed at its default branch while
+services pin older releases), navigation links them across versions:</p>
+<ul>
+<li><strong>Go to definition</strong>: when no index defines the symbol at the version the file uses, the
+definition comes from an index of the same package at another version, preferring the index
+serving the library's default branch, else the newest.</li>
+<li><strong>Find references</strong>: references from indexes that hold the symbol at other versions of the
+package are added after the exact matches.</li>
+</ul>
+<p>Exact versions always win, and at most 20 other versions are looked at. Results linked across
+versions are marked with both versions: the definition and each such reference carry
+<code>crossVersion { requested found }</code> in the API, and the references coverage line lists the
+repositories reached that way, e.g. <code>precise: 5 repositories · other versions: billing (v1.0.54) · search-based: none</code>. A symbol that was renamed or moved between the versions is not
+linked.</p>
+<p>The uploads, their processing state and the index configuration of a repository are on its
+<strong>Code graph</strong> page (<code>/&lt;repo&gt;/-/code-graph</code>). The index configuration edits its jobs as a form or
+as JSON. A saved configuration takes precedence over <code>sourcegull.yaml</code> and inference even when it
+has no jobs; <strong>Remove configuration</strong> deletes it.</p>
+<h3 id="uploading-from-gitlab-ci"><a class="anchor" href="#uploading-from-gitlab-ci" aria-hidden="true">#</a>Uploading from GitLab CI</h3>
+<p><a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/gitlab-ci/sourcegull-scip.gitlab-ci.yml" rel="noopener"><code>deploy/gitlab-ci/sourcegull-scip.gitlab-ci.yml</code></a>
+is a CI template that indexes a project and uploads the result. Copy it into a project on your
+GitLab instance and include it from each project's <code>.gitlab-ci.yml</code>:</p>
+<div class="codeblock"><div class="codebar"><span>yaml</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nt">include</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">project</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">infra/sourcegull-ci</span>
+<span class="w">    </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/sourcegull-scip.gitlab-ci.yml</span>
+</code></pre></div>
+<p>A copy committed to the project itself works too (<code>include: - local: /ci/sourcegull-scip.gitlab-ci.yml</code>).</p>
+<p>Then set two CI/CD variables:</p>
+<ul>
+<li><code>SOURCEGULL_ENDPOINT</code>, the Sourcegull URL (e.g. <code>https://sourcegull.example.com</code>);</li>
+<li><code>SOURCEGULL_CLI_IMAGE</code>, an image with the <code>gull</code> client: the published
+<code>ghcr.io/sourcegull/gull:&lt;version&gt;</code> (the version of your Sourcegull), a mirror of it, or one
+built from the <code>cli</code> target of <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/docker/Dockerfile" rel="noopener"><code>deploy/docker/Dockerfile</code></a>
+(<code>docker build -f deploy/docker/Dockerfile --target cli -t registry.example.com/gull:&lt;version&gt; .</code>)
+and pushed to a registry your runners can pull from. The template has no default: without
+it, the index and upload jobs are skipped and the job <code>sourcegull-scip-missing-cli-image</code> fails
+(allowed to fail) with a message saying what to set. (GitLab does not accept an empty
+<code>image:</code>, so the template skips the jobs by rule instead.)</li>
+</ul>
+<p>Uploads authenticate with either:</p>
+<ul>
+<li><code>SOURCEGULL_ACCESS_TOKEN</code>, a masked variable holding an <a href="/docs/permissions/#access-tokens">access token</a>
+of a user who can read the repository, or</li>
+<li>the job's own <code>CI_JOB_TOKEN</code>, when the site configuration has
+<code>&quot;codeIntel.gitlabJobTokenUploads&quot;: true</code>; Sourcegull checks the token with GitLab and accepts
+the upload only for the job's own project. The upload records the GitLab job id, its ref
+and the username of the user who triggered the job (the <code>gitlabCiJob</code> field of a precise
+index in the API), and only that job can add parts to a multipart upload it started.</li>
+</ul>
+<p>The repository name is derived from <code>CI_PROJECT_URL</code> (<code>gitlab.example.com/group/project</code>). If
+the code host connection uses a custom repository path pattern, set
+<code>SOURCEGULL_UPLOAD_FLAGS: &quot;-repo=&lt;name&gt;&quot;</code> with the name as Sourcegull shows it.</p>
+<p>The template has an index job and an upload job per language: Go (<code>go.mod</code>), TypeScript and
+JavaScript (<code>tsconfig.json</code>, <code>package.json</code>), Java/Scala/Kotlin (<code>pom.xml</code>, <code>build.gradle</code>,
+<code>build.sbt</code>), Python (<code>pyproject.toml</code>, <code>setup.py</code>, <code>requirements.txt</code>) and Rust
+(<code>Cargo.toml</code>; the cargo registry is cached per project). A language's jobs run when its build
+file is at the repository root. Per language (<code>&lt;LANG&gt;</code> = <code>GO</code>, <code>TYPESCRIPT</code>, <code>JAVA</code>, <code>PYTHON</code>,
+<code>RUST</code>):</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SOURCEGULL_&lt;LANG&gt;_ENABLED: &quot;true&quot;</code></td>
+<td>run even without the build file at the root</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_&lt;LANG&gt;_DISABLED: &quot;true&quot;</code></td>
+<td>never run</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_&lt;LANG&gt;_ROOT</code></td>
+<td>index a subdirectory</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_&lt;LANG&gt;_IMAGE</code></td>
+<td>indexer image (default: the image auto-indexing uses, pinned by digest)</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_&lt;LANG&gt;_INDEX_FLAGS</code></td>
+<td>extra indexer arguments</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_UPLOAD_FLAGS</code></td>
+<td>extra <code>gull code-intel upload</code> flags, e.g. <code>-repo=&lt;name&gt;</code></td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_SCIP_MERGE_REQUESTS: &quot;true&quot;</code></td>
+<td>also run in merge request pipelines</td>
+</tr>
+<tr>
+<td><code>SOURCEGULL_SCIP_DISABLED: &quot;true&quot;</code></td>
+<td>turn everything off</td>
+</tr>
+</tbody>
+</table></div>
+<p>The jobs are in the <code>test</code> stage and allowed to fail; redefine a job to change anything else.
+A project whose <code>.gitlab-ci.yml</code> defines its own <code>stages:</code> must list <code>test</code> there, or set
+<code>stage:</code> on each template job it uses:</p>
+<div class="codeblock"><div class="codebar"><span>yaml</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nt">sourcegull-scip-go</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">stage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">build</span>
+<span class="nt">sourcegull-scip-go-upload</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">stage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">build</span>
+</code></pre></div>
+<p>Otherwise GitLab refuses to create the pipeline (the job's stage does not exist).</p>
+<p>Because the jobs may fail without failing the pipeline, check that uploads arrive: after a
+pipeline runs, the repository's <strong>Code graph</strong> page in Sourcegull
+(<code>/&lt;repo&gt;/-/code-graph</code>) lists the upload and its processing state, and the upload job's log
+ends with a link to that page. A failed upload job shows the reason in its log (for example,
+an unknown repository: check <code>-repo</code>).</p>
+<h3 id="uploading-with-gull"><a class="anchor" href="#uploading-with-gull" aria-hidden="true">#</a>Uploading with <code>gull</code></h3>
+<p><code>gull code-intel upload</code> uploads an index from any machine or CI system:</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nb">export</span><span class="w"> </span><span class="nv">SOURCEGULL_ENDPOINT</span><span class="o">=</span>https://sourcegull.example.com<span class="w"> </span><span class="nv">SOURCEGULL_ACCESS_TOKEN</span><span class="o">=</span>...
+gull<span class="w"> </span>code-intel<span class="w"> </span>upload<span class="w">                      </span><span class="c1"># ./index.scip; repository, commit and root from git</span>
+gull<span class="w"> </span>code-intel<span class="w"> </span>upload<span class="w"> </span>-repo<span class="o">=</span>gitlab.example.com/acme/api<span class="w"> </span>-commit<span class="o">=</span>&lt;sha&gt;<span class="w"> </span>-root<span class="o">=</span>services/api<span class="w"> </span>-file<span class="o">=</span>index.scip
+</code></pre></div>
+<p>In GitLab CI, the repository and commit come from the job's <code>CI_*</code> variables, and
+<code>CI_JOB_TOKEN</code> is used when no access token is set. <code>gull code-intel upload --help</code> lists every
+flag. The endpoint is <code>POST /.api/scip/upload</code>.</p>
+<p>Uploads larger than <code>codeIntel.maxUploadBytes</code> (default 2 GiB, counted as sent, so usually
+gzip-compressed, and summed over the parts of a multipart upload) are refused with
+<code>413 Payload Too Large</code> and discarded. Compressed SCIP indexes of large repositories are
+typically tens to a few hundred MB.</p>
+<h2 id="auto-indexing"><a class="anchor" href="#auto-indexing" aria-hidden="true">#</a>Auto-indexing</h2>
+<p>Instead of (or in addition to) CI uploads, Sourcegull can build indexes itself on
+<a href="/docs/architecture/#executors">executors</a>:</p>
+<ol>
+<li>Run at least one executor with the <code>codeintel</code> queue (Compose profile <code>executors</code>, or Helm
+<code>executor.enabled=true</code>), and set the same secret in <code>executors.accessToken</code> and
+<code>SOURCEGULL_EXECUTOR_TOKEN</code>.</li>
+<li>Set <code>&quot;codeIntelAutoIndexing.enabled&quot;: true</code> in the site configuration.</li>
+<li>Create a <a href="#policies">policy</a> with indexing enabled for the repositories and branches to
+index.</li>
+</ol>
+<p>For each commit a policy names, Sourcegull infers the index jobs from the repository's files. The
+built-in recognizers cover Go, Java/Scala/Kotlin, Python, Ruby, Rust, TypeScript/JavaScript,
+C#/.NET and C/C++, using pinned indexer images (override them per language with
+<code>codeIntelAutoIndexing.indexerMap</code>, e.g. for a registry mirror). The jobs run on executors and
+upload their result like a CI job. A job checks out only its commit, together with the tags
+that point at it, so an indexer that reads the version from a tag (such as a Go module's
+<code>v1.2.3</code>) gives a library's index the release version its dependents import.</p>
+<p>Indexers download the project's dependencies, so private ones need credentials, stored as
+executor secrets with the Code intelligence scope (Site admin → Executor
+secrets); a job receives the ones its recognizer asks for:</p>
+<ul>
+<li>Go: <code>GOPRIVATE</code> and <code>GONOSUMDB</code> (the GitLab hosts, comma-separated, e.g.
+<code>gitlab.example.com</code>), and <code>NETRC_DATA</code>, written to <code>~/.netrc</code> in the job, with one line per
+host: <code>machine gitlab.example.com login oauth2 password &lt;token&gt;</code>, using a token with
+<code>read_repository</code>. Without them, <code>go mod download</code> fails for every module that requires a
+private one, and GitLab answers unauthenticated <code>go get</code> requests for private projects with
+the wrong repository path. <code>GOPROXY</code>, <code>GONOPROXY</code> and <code>GOSUMDB</code> are passed through as well.</li>
+<li>TypeScript/JavaScript: <code>NPM_TOKEN</code> for a private registry.</li>
+</ul>
+<p>A job's log on the repository's Code graph page shows which dependency failed; the
+<a href="#coverage">coverage</a> page lists the repositories whose indexing fails.</p>
+<p>To control the jobs for a repository:</p>
+<ul>
+<li>a <code>sourcegull.yaml</code> file at the repository root, or a configuration saved on the repository's
+Code graph page, lists the index jobs explicitly (steps, indexer image, arguments, root);</li>
+<li>the <strong>inference script</strong> (Site admin → Inference script) is a Lua script that can add
+recognizers or turn built-in ones off for the whole instance. It runs in a sandbox with an
+instruction budget, a deadline and a memory limit, and the page can preview the jobs it
+infers for a repository.</li>
+</ul>
+<p>Other settings: <code>codeIntelAutoIndexing.allowGlobalPolicies</code> (let policies without repository
+patterns enable indexing everywhere), <code>codeIntelAutoIndexing.policyRepositoryMatchLimit</code> and
+<code>codeIntelAutoIndexing.repositoryCommitsPerHour</code>.</p>
+<h3 id="coverage"><a class="anchor" href="#coverage" aria-hidden="true">#</a>Coverage</h3>
+<p>Site admin → Index coverage shows which repositories have a current precise index. Each
+repository is in one state:</p>
+<ul>
+<li><strong>Up to date</strong>: a completed index is at the default branch tip, or the newest completed index
+is younger than the stale window (7 days by default, adjustable on the page);</li>
+<li><strong>Stale</strong>: completed indexes exist, none at the tip, and the newest is older than the window;</li>
+<li><strong>Failing</strong>: the latest index job or upload failed after the newest completed index;</li>
+<li><strong>Not indexed</strong>: an indexing policy applies, but no index has completed;</li>
+<li><strong>Not targeted</strong>: no indexing policy applies (always the case while auto-indexing is off) and
+nothing was uploaded.</li>
+</ul>
+<p>The table can be filtered by state and name, and shows the last indexed commit and its age, the
+latest failure message and a link to the repository's Code graph page, where the job's logs
+are. Navigation in a stale or failing repository answers from older data or from search, so
+references into it can be missing. The worker exports the same counts as
+<code>sourcegull_codeintel_coverage_repos{state}</code> (refreshed every 5 minutes), and the
+<code>worker_codeintel_failing_repos_growth</code> <a href="/docs/observability/alerts/">alert</a> fires when more
+repositories are failing than 6 hours before.</p>
+<h2 id="policies"><a class="anchor" href="#policies" aria-hidden="true">#</a>Policies</h2>
+<p>Code graph policies (Site admin → Code graph policies, and per repository) decide which
+precise indexes are kept and which commits are auto-indexed. A policy names:</p>
+<ul>
+<li>the repositories it applies to (one repository, name patterns, or all),</li>
+<li>the git objects: a branch or tag name pattern, or one commit,</li>
+<li><strong>retention</strong>: how long indexes visible from those objects are kept, and whether
+intermediate commits count,</li>
+<li><strong>indexing</strong>: whether to auto-index them, the maximum commit age, and whether intermediate
+commits are indexed.</li>
+</ul>
+<p>Indexes that no policy retains expire and are removed in the background (unless another index
+depends on them). Indexes that serve the tip of a repository's default branch are always kept.</p>
+<h2 id="syntactic-navigation"><a class="anchor" href="#syntactic-navigation" aria-hidden="true">#</a>Syntactic navigation</h2>
+<p>For Go, Rust, Python, Java, JavaScript, TypeScript, C and C++, Sourcegull parses the file with
+tree-sitter and resolves local variables, parameters and other names defined inside functions
+and blocks to their definitions. Names defined at the top level of a file, which other files
+can use, are left to the other tiers. It needs no setup and works on any revision.</p>
+<h2 id="search-based-navigation"><a class="anchor" href="#search-based-navigation" aria-hidden="true">#</a>Search-based navigation</h2>
+<p>When no precise data covers a position, Sourcegull searches for the symbol: definitions come from
+symbol search (tree-sitter symbol extraction for 19 languages), references from a
+case-sensitive whole-word text search, both narrowed to the file's language family. Hover text
+comes from the definition's line and its doc comment.
+Results are labelled as search-based, since a name may match unrelated code.</p>
+<h2 id="ranking"><a class="anchor" href="#ranking" aria-hidden="true">#</a>Ranking</h2>
+<p>A worker job builds the reference graph of all precise indexes that serve each repository's
+default branch: files are nodes, and references between them (also across repositories) are
+weighted edges. It computes PageRank over this graph and stores a static rank per file. Repo
+nodes write the ranks into the search index at the next full build, and search uses them to
+break ties between equally good matches, so central, widely used files come first. The ranking
+is on by default (<code>codeIntelRanking.documentReferenceCountsEnabled</code>) and has no effect until
+precise indexes exist.</p>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/docs/code-navigation.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/search/"><span>Previous</span><b>Search</b></a><a class="next" href="/docs/mcp/"><span>Next</span><b>AI agents (MCP)</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#precise-navigation-scip">Precise navigation (SCIP)</a></li><li class="l3"><a href="#uploading-from-gitlab-ci">Uploading from GitLab CI</a></li><li class="l3"><a href="#uploading-with-gull">Uploading with gull</a></li><li class="l2"><a href="#auto-indexing">Auto-indexing</a></li><li class="l3"><a href="#coverage">Coverage</a></li><li class="l2"><a href="#policies">Policies</a></li><li class="l2"><a href="#syntactic-navigation">Syntactic navigation</a></li><li class="l2"><a href="#search-based-navigation">Search-based navigation</a></li><li class="l2"><a href="#ranking">Ranking</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>

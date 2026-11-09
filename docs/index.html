@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sourcegull documentation</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/assets/docs.css" />
+</head>
+<body class="docs">
+  <header class="topbar">
+    <div class="topbar-inner wide">
+      <button class="menu" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      <a class="brand" href="/"><img src="/favicon.png" width="28" height="28" alt="" /><span>Source<b>gull</b></span><em>docs</em></a>
+      <div class="search">
+        <input type="search" placeholder="Search the docs" aria-label="Search the docs" autocomplete="off" />
+        <kbd>/</kbd>
+        <ul class="results" hidden></ul>
+      </div>
+      <nav class="topnav" aria-label="Site">
+        <a href="/#features">Features</a>
+        <a href="/docs/install/">Install</a>
+        <a href="https://github.com/sourcegull/sourcegull">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <p class="version">Version <b>v0.8.0</b></p>
+      <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/" aria-current="page">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
+    </aside>
+    <main class="doc">
+      <article class="prose">
+<h1 id="sourcegull-documentation">Sourcegull documentation</h1>
+<p>Sourcegull is a self-hosted code search and code intelligence platform for GitLab, GitHub and
+Gitea. It runs as one binary with PostgreSQL as its only dependency, and installs with Docker
+or a Helm chart.</p>
+<h2 id="running-sourcegull"><a class="anchor" href="#running-sourcegull" aria-hidden="true">#</a>Running Sourcegull</h2>
+<ul>
+<li><a href="/docs/install/">Install</a>: Docker Compose, Kubernetes (Helm), S3 blob
+storage, first sign-in and connecting GitLab, GitHub or Gitea.</li>
+<li><a href="/docs/configuration/">Configuration</a>: environment variables, site configuration, user and
+organization settings, encryption keys, database pools, configuration as code (resources
+and global settings files).</li>
+<li><a href="/docs/permissions/">Permissions and sign-in</a>: sign-in providers, repository permissions from
+GitLab, roles, access tokens, access requests, SCIM and audit events.</li>
+<li><a href="/docs/observability/">Monitoring</a>: Grafana dashboards and Prometheus alerts, with the next steps
+for each alert (<a href="/docs/observability/alerts/">alerts.md</a>).</li>
+<li>Upgrades: <a href="/docs/upgrade-compose/">Docker Compose</a>, <a href="/docs/helm/">Helm chart</a>.</li>
+</ul>
+<h2 id="using-sourcegull"><a class="anchor" href="#using-sourcegull" aria-hidden="true">#</a>Using Sourcegull</h2>
+<ul>
+<li><a href="/docs/search/">Search</a>: the query language, search contexts, saved searches and search jobs.</li>
+<li><a href="/docs/code-navigation/">Code navigation</a>: precise (SCIP), syntactic and search-based navigation,
+auto-indexing and file ranking.</li>
+<li><a href="/docs/bulk-changes/">Bulk changes</a>: bulk change specs, running them on executors or locally, and
+merge requests on GitLab.</li>
+<li><a href="/docs/features/">Other features</a>: rendered Markdown and READMEs, trends, watches, notebooks,
+code ownership, compute, usage analytics, outbound webhooks and site administration.</li>
+<li><a href="/docs/mcp/">AI agents (MCP)</a>: the MCP server at <code>/.api/mcp</code> and how to connect coding agents.</li>
+</ul>
+<h2 id="working-on-sourcegull"><a class="anchor" href="#working-on-sourcegull" aria-hidden="true">#</a>Working on Sourcegull</h2>
+<ul>
+<li><a href="/docs/architecture/">Architecture</a>: roles, storage, gRPC, repo node partitioning, the search
+index and a map of the crates.</li>
+<li><a href="/docs/development/">Development</a>: the Docker development environment, tests, browser checks,
+benchmarks and conventions.</li>
+<li><a href="/docs/roadmap/">Roadmap</a>: planned work, with the design and the definition of done for each item.</li>
+</ul>
+
+      </article>
+      <p class="edit"><a href="https://github.com/sourcegull/sourcegull/blob/main/docs/README.md">Edit this page on GitHub</a></p>
+      <nav class="pager" aria-label="Pages"><span></span><a class="next" href="/docs/install/"><span>Next</span><b>Install</b></a></nav>
+    </main>
+    <aside class="toc">
+      <p>On this page</p><ul><li class="l2"><a href="#running-sourcegull">Running Sourcegull</a></li><li class="l2"><a href="#using-sourcegull">Using Sourcegull</a></li><li class="l2"><a href="#working-on-sourcegull">Working on Sourcegull</a></li></ul>
+    </aside>
+  </div>
+  <script src="/assets/docs.js" defer></script>
+</body>
+</html>
