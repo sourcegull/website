@@ -28,18 +28,18 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.8.0</b></p>
+      <p class="version">Version <b>v0.8.1</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/" aria-current="page">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
       <article class="prose">
 <h1 id="sourcegull-helm-chart">Sourcegull Helm chart</h1>
 <p>Deploys Sourcegull on Kubernetes. Every value is documented in
-<a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/sourcegull/values.yaml" rel="noopener"><code>values.yaml</code></a> and validated by <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/sourcegull/values.schema.json" rel="noopener"><code>values.schema.json</code></a>, which
+<a href="https://github.com/sourcegull/sourcegull/blob/v0.8.1/deploy/helm/sourcegull/values.yaml" rel="noopener"><code>values.yaml</code></a> and validated by <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.1/deploy/helm/sourcegull/values.schema.json" rel="noopener"><code>values.schema.json</code></a>, which
 is generated from it: after changing values.yaml run
 <code>docker run --rm -v &quot;$PWD:$PWD&quot; -w &quot;$PWD&quot; python:3.12-alpine sh -c 'pip -q install pyyaml==6.0.2 &amp;&amp; python -I scripts/helm-schema.py deploy/helm/sourcegull/values.yaml deploy/helm/sourcegull/values.schema.json'</code>
 (enums, patterns and minimums are in its <code>RULES</code>);
-<a href="/docs/helm-sizing/"><code>SIZING.md</code></a> and <a href="https://github.com/sourcegull/sourcegull/tree/v0.8.0/deploy/helm/sourcegull/examples" rel="noopener"><code>examples/</code></a> give small, medium and large presets.</p>
+<a href="/docs/helm-sizing/"><code>SIZING.md</code></a> and <a href="https://github.com/sourcegull/sourcegull/tree/v0.8.1/deploy/helm/sourcegull/examples" rel="noopener"><code>examples/</code></a> give small, medium and large presets.</p>
 <p>Each release publishes the chart to <code>oci://ghcr.io/sourcegull/charts/sourcegull</code> (Helm 3.8 or
 later); the <a href="https://github.com/sourcegull/sourcegull/releases" rel="noopener">release notes</a> give its version.
 The presets in <code>examples/</code> come with the chart (<code>helm pull --untar</code> it to use them):</p>
@@ -322,6 +322,10 @@ it is on <code>main</code>, upgrades it to the working tree's chart and runs <co
 <td>0.2.8</td>
 <td>Sourcegull 0.8.0</td>
 </tr>
+<tr>
+<td>0.2.9</td>
+<td>Artifact Hub metadata: icon, links, licence, images</td>
+</tr>
 </tbody>
 </table></div>
 <h2 id="testing-the-chart"><a class="anchor" href="#testing-the-chart" aria-hidden="true">#</a>Testing the chart</h2>
@@ -329,11 +333,11 @@ it is on <code>main</code>, upgrades it to the working tree's chart and runs <co
 <ul>
 <li><code>template</code>: checks that <code>values.schema.json</code> is current, then <code>helm lint --strict</code> and
 <code>helm template</code> for the defaults, each preset, each <code>ci/*-values.yaml</code>,
-<a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/ct/options-values.yaml" rel="noopener"><code>../ct/options-values.yaml</code></a> (every option at once) and an option
+<a href="https://github.com/sourcegull/sourcegull/blob/v0.8.1/deploy/helm/ct/options-values.yaml" rel="noopener"><code>../ct/options-values.yaml</code></a> (every option at once) and an option
 matrix, plus combinations that must be refused;</li>
 <li><code>lint</code>: chart-testing <code>ct lint</code> (yamllint, Chart.yaml schema, version bump against <code>main</code>);</li>
 <li><code>install</code>: a kind cluster, the Sourcegull image built from <code>deploy/docker/Dockerfile</code> and loaded into
-it, then <code>ct install --upgrade</code> with <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/helm/ct/kind-values.yaml" rel="noopener"><code>../ct/kind-values.yaml</code></a> layered
+it, then <code>ct install --upgrade</code> with <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.1/deploy/helm/ct/kind-values.yaml" rel="noopener"><code>../ct/kind-values.yaml</code></a> layered
 on every install. CI runs the same in <code>.github/workflows/helm.yml</code>.</li>
 </ul>
 

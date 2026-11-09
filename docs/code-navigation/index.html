@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.8.0</b></p>
+      <p class="version">Version <b>v0.8.1</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/" aria-current="page">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -107,7 +107,7 @@ linked.</p>
 as JSON. A saved configuration takes precedence over <code>sourcegull.yaml</code> and inference even when it
 has no jobs; <strong>Remove configuration</strong> deletes it.</p>
 <h3 id="uploading-from-gitlab-ci"><a class="anchor" href="#uploading-from-gitlab-ci" aria-hidden="true">#</a>Uploading from GitLab CI</h3>
-<p><a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/gitlab-ci/sourcegull-scip.gitlab-ci.yml" rel="noopener"><code>deploy/gitlab-ci/sourcegull-scip.gitlab-ci.yml</code></a>
+<p><a href="https://github.com/sourcegull/sourcegull/blob/v0.8.1/deploy/gitlab-ci/sourcegull-scip.gitlab-ci.yml" rel="noopener"><code>deploy/gitlab-ci/sourcegull-scip.gitlab-ci.yml</code></a>
 is a CI template that indexes a project and uploads the result. Copy it into a project on your
 GitLab instance and include it from each project's <code>.gitlab-ci.yml</code>:</p>
 <div class="codeblock"><div class="codebar"><span>yaml</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nt">include</span><span class="p">:</span>
@@ -120,7 +120,7 @@ GitLab instance and include it from each project's <code>.gitlab-ci.yml</code>:<
 <li><code>SOURCEGULL_ENDPOINT</code>, the Sourcegull URL (e.g. <code>https://sourcegull.example.com</code>);</li>
 <li><code>SOURCEGULL_CLI_IMAGE</code>, an image with the <code>gull</code> client: the published
 <code>ghcr.io/sourcegull/gull:&lt;version&gt;</code> (the version of your Sourcegull), a mirror of it, or one
-built from the <code>cli</code> target of <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/docker/Dockerfile" rel="noopener"><code>deploy/docker/Dockerfile</code></a>
+built from the <code>cli</code> target of <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.1/deploy/docker/Dockerfile" rel="noopener"><code>deploy/docker/Dockerfile</code></a>
 (<code>docker build -f deploy/docker/Dockerfile --target cli -t registry.example.com/gull:&lt;version&gt; .</code>)
 and pushed to a registry your runners can pull from. The template has no default: without
 it, the index and upload jobs are skipped and the job <code>sourcegull-scip-missing-cli-image</code> fails

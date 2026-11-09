@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.8.0</b></p>
+      <p class="version">Version <b>v0.8.1</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/" aria-current="page">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -106,7 +106,7 @@ implementations, so another backend can be added without touching their callers.
 <p>Secrets are encrypted at rest with envelope encryption: data keys per record class, wrapped by
 key-encryption keys from a file (<a href="/docs/configuration/#encryption-keys">encryption keys</a>).</p>
 <h2 id="grpc-between-roles"><a class="anchor" href="#grpc-between-roles" aria-hidden="true">#</a>gRPC between roles</h2>
-<p>Roles talk to repo nodes over gRPC, defined in <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/proto/repo.proto" rel="noopener"><code>proto/repo.proto</code></a>:</p>
+<p>Roles talk to repo nodes over gRPC, defined in <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.1/proto/repo.proto" rel="noopener"><code>proto/repo.proto</code></a>:</p>
 <ul>
 <li><code>RepoService</code>: clone, fetch, status, refs, files and trees, commits, logs, diffs, blame,
 archives, merge bases, <code>CopyRepo</code> (for rebalancing), and the write operations bulk changes

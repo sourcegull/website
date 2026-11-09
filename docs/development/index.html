@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.8.0</b></p>
+      <p class="version">Version <b>v0.8.1</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/" aria-current="page">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -42,7 +42,7 @@ scripts/dev<span class="w"> </span>logs<span class="w"> </span>sourcegull<span c
 open<span class="w"> </span>http://localhost:5173<span class="w">    </span><span class="c1"># UI with hot reload; API and embedded UI on :7080, metrics on :6060</span>
 </code></pre></div>
 <p><code>compose.yaml</code> at the repository root is the development setup (the Compose files for installs
-are in <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.0/deploy/docker/compose.yaml" rel="noopener"><code>deploy/docker/</code></a>). The <code>sourcegull</code> service runs
+are in <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.1/deploy/docker/compose.yaml" rel="noopener"><code>deploy/docker/</code></a>). The <code>sourcegull</code> service runs
 <code>cargo build -p sourcegull</code> and then <code>sourcegull supervise</code> (encryption keys, migrations, all roles)
 against the <code>postgres</code> service. The <code>ui</code> service builds the query parser WASM and runs
 <code>vite dev</code>, which proxies <code>/.api</code> to <code>sourcegull</code>. After changing Rust code,
@@ -376,7 +376,8 @@ self-hosted runner (labels <code>self-hosted</code>, <code>linux</code>):</p>
 <li>sets the version with <code>scripts/release-version.sh</code> and commits it as &quot;Release X.Y.Z&quot; on top
 of <code>main</code>: the workspace version (<code>Cargo.toml</code>, <code>Cargo.lock</code>), the UI package, <code>ARG VERSION</code>
 in the Dockerfile, <code>SOURCEGULL_VERSION</code> in the Compose files, <code>.env.example</code> and the upgrade
-guide, the chart's <code>appVersion</code> and a patch bump of its <code>version</code> (unless the chart version
+guide, the MCP Registry entry (<code>server.json</code>), the chart's <code>appVersion</code>, the image in its
+Artifact Hub annotation and a patch bump of its <code>version</code> (unless the chart version
 changed since the previous release already) with a row in the chart README, and, for a
 release that is not a pre-release, <code>crates/db/schema/X.Y.Z.json</code> and its entry in <code>RELEASES</code>
 (<code>crates/db/src/upgrade.rs</code>) for <code>migrate upgrade</code>;</li>
@@ -385,10 +386,22 @@ release that is not a pre-release, <code>crates/db/schema/X.Y.Z.json</code> and 
 version's description with <code>migrate drift</code>) and the Gitea browser check against the runtime
 image (<code>SOURCEGULL_E2E_IMAGE=&lt;image&gt; CHECKS=gitea scripts/dev e2e</code>);</li>
 <li>pushes <code>ghcr.io/sourcegull/sourcegull</code> and <code>ghcr.io/sourcegull/gull</code>, pushes the Helm chart to
-<code>oci://ghcr.io/sourcegull/charts</code> when its <code>version</code> is not published yet, and signs them;</li>
+<code>oci://ghcr.io/sourcegull/charts</code> when its <code>version</code> is not published yet, and signs them;
+pushes <code>deploy/helm/artifacthub-repo.yml</code>, when it exists, as the chart's <code>artifacthub.io</code>
+tag (Artifact Hub's repository metadata);</li>
 <li>pushes the release commit to <code>main</code> together with the <code>vX.Y.Z</code> tag, and creates the GitHub
 release with the Compose bundle (<code>sourcegull-compose.tar.gz</code>, the files of <code>deploy/docker/</code> a
-host needs) attached.</li>
+host needs) attached;</li>
+<li>for a release that is not a pre-release, publishes <code>server.json</code> to the
+<a href="https://registry.modelcontextprotocol.io" rel="noopener">MCP Registry</a> as <code>io.github.sourcegull/sourcegull</code>,
+signed in with the run's GitHub OIDC token;</li>
+<li>for a release that is not a pre-release, rebuilds the documentation pages of the project site
+(<a href="https://sourcegull.org/docs/" rel="noopener">sourcegull.org/docs</a>, repository <code>sourcegull/website</code>) from the
+new tag with that repository's <code>tools/build-docs.sh</code> and pushes them to its <code>main</code>, which
+GitHub Pages serves. It signs in with the site repository's deploy key, stored as the secret
+<code>WEBSITE_DEPLOY_KEY</code>; without the secret the step is skipped. A docs fix between releases
+reaches the site with <code>tools/build-docs.sh main</code> (or a tag) run in a checkout of
+<code>sourcegull/website</code>, then a push.</li>
 </ol>
 <p>Nothing is published when <code>main</code> moved after the run started; run it again then. With
 <strong>publish</strong> unchecked it runs steps 1 to 3 and pushes nothing. <code>scripts/release-version.sh &lt;bump|version&gt;</code> makes the same changes in a checkout, to look at them before a release.</p>
