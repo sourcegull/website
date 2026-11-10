@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.8.3</b></p>
+      <p class="version">Version <b>v0.9.0</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/" aria-current="page">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -42,7 +42,7 @@ scripts/dev<span class="w"> </span>logs<span class="w"> </span>sourcegull<span c
 open<span class="w"> </span>http://localhost:5173<span class="w">    </span><span class="c1"># UI with hot reload; API and embedded UI on :7080, metrics on :6060</span>
 </code></pre></div>
 <p><code>compose.yaml</code> at the repository root is the development setup (the Compose files for installs
-are in <a href="https://github.com/sourcegull/sourcegull/blob/v0.8.3/deploy/docker/compose.yaml" rel="noopener"><code>deploy/docker/</code></a>). The <code>sourcegull</code> service runs
+are in <a href="https://github.com/sourcegull/sourcegull/blob/v0.9.0/deploy/docker/compose.yaml" rel="noopener"><code>deploy/docker/</code></a>). The <code>sourcegull</code> service runs
 <code>cargo build -p sourcegull</code> and then <code>sourcegull supervise</code> (encryption keys, migrations, all roles)
 against the <code>postgres</code> service. The <code>ui</code> service builds the query parser WASM and runs
 <code>vite dev</code>, which proxies <code>/.api</code> to <code>sourcegull</code>. After changing Rust code,

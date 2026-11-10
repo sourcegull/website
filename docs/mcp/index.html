@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.8.3</b></p>
+      <p class="version">Version <b>v0.9.0</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/" aria-current="page">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -163,7 +163,8 @@ without a live grant a day after their document was last fetched.</p>
 <p>Tokens are opaque (<code>sko_…</code> and <code>skr_…</code>), stored hashed, and work only at <code>/.api/mcp</code>: GraphQL and
 the other APIs reject them. <strong>User settings → Connected apps</strong> lists the apps a user allowed,
 with when they were last used, and revokes them; <strong>Site admin → Connected apps</strong> lists every
-user's. Grants, refreshes, reuse of a rotated refresh token or a used code, and revocations are
+user's, 50 at a time, filtered by username or app and sorted by any column (GraphQL
+<code>connectedApps</code>). Grants, refreshes, reuse of a rotated refresh token or a used code, and revocations are
 <a href="/docs/permissions/#audit-events">audit events</a>, and deactivating a user through SCIM revokes their
 grants.</p>
 <p>Site configuration:</p>

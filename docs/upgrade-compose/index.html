@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.8.3</b></p>
+      <p class="version">Version <b>v0.9.0</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/" aria-current="page">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -60,8 +60,8 @@ docker<span class="w"> </span>compose<span class="w"> </span>cp<span class="w"> 
 
 <span class="c1"># 1. Take the new release&#39;s Compose files (extracted over the old ones; the bundle holds no</span>
 <span class="c1">#    .env, secrets/ or files of yours in config/), and point the stack at the new version.</span>
-curl<span class="w"> </span>-fsSL<span class="w"> </span>https://github.com/sourcegull/sourcegull/releases/download/v0.8.3/sourcegull-compose.tar.gz<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>-xz<span class="w"> </span>-C<span class="w"> </span>..
-sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/^SOURCEGULL_VERSION=.*/SOURCEGULL_VERSION=0.8.3/&#39;</span><span class="w"> </span>.env
+curl<span class="w"> </span>-fsSL<span class="w"> </span>https://github.com/sourcegull/sourcegull/releases/download/v0.9.0/sourcegull-compose.tar.gz<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>-xz<span class="w"> </span>-C<span class="w"> </span>..
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/^SOURCEGULL_VERSION=.*/SOURCEGULL_VERSION=0.9.0/&#39;</span><span class="w"> </span>.env
 
 <span class="c1"># 2. Pull the new images.</span>
 docker<span class="w"> </span>compose<span class="w"> </span>pull
@@ -89,7 +89,7 @@ checks that the database is exactly at <code>--from</code>, compares the schema 
 shipped (drift), applies each version's migrations in order and checks the result:</p>
 <div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="nb">cd</span><span class="w"> </span>sourcegull-compose
 docker<span class="w"> </span>compose<span class="w"> </span>stop<span class="w"> </span>sourcegull<span class="w">          </span><span class="c1"># compose.production.yaml: stop web worker repo-0</span>
-sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/^SOURCEGULL_VERSION=.*/SOURCEGULL_VERSION=0.8.3/&#39;</span><span class="w"> </span>.env
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/^SOURCEGULL_VERSION=.*/SOURCEGULL_VERSION=0.9.0/&#39;</span><span class="w"> </span>.env
 docker<span class="w"> </span>compose<span class="w"> </span>pull
 <span class="c1"># compose.production.yaml: `run --rm migrate migrate …` in place of `run --rm --no-deps sourcegull migrate …`</span>
 docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--no-deps<span class="w"> </span>sourcegull<span class="w"> </span>migrate<span class="w"> </span>versions<span class="w">                    </span><span class="c1"># where the database is</span>

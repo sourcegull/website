@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.8.3</b></p>
+      <p class="version">Version <b>v0.9.0</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/" aria-current="page">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -380,7 +380,9 @@ repository. Subscribe the organization webhook to those events.</li>
 a code host rejected their token (GitLab, GitHub or Gitea), Sourcegull shows them a banner on every
 page: &quot;Sign in again with GitHub to see your private repositories&quot;, linking to that code host's
 sign-in provider. It goes away once they sign in again. The sync jobs under Site admin →
-Repository permissions show each code host's error with its name.</p>
+Repository permissions show each code host's error with its name. They list 50 at a time,
+newest first; the counts at the top (queued, processing, errored, failed) narrow the list to
+one state (GraphQL <code>permissionsSyncJobs</code> and <code>permissionsSyncJobCounts</code>).</p>
 <p><strong>Explicit permissions</strong>: with <code>&quot;permissions.userMapping&quot;: { &quot;enabled&quot;: true, &quot;bindID&quot;: &quot;email&quot; }</code> (or <code>&quot;username&quot;</code>), every private repository is restricted and site admins grant
 access through the GraphQL API, naming users by email or username.</p>
 <p>Permissions are enforced on every read path (search, file views, navigation, trends,
@@ -398,10 +400,13 @@ grant include <code>BATCH_CHANGES#READ</code>, <code>BATCH_CHANGES#WRITE</code>,
 <li><strong>Organizations</strong> group users. Members share the organization's settings (part of the
 <a href="/docs/configuration/#settings-and-the-settings-cascade">settings cascade</a>), saved searches,
 search contexts, notebooks, watches, trends dashboards and bulk changes. Members invite
-others by username or email.</li>
+others by username or email. <strong>Site admin → Organizations</strong> lists them 50 at a time,
+filtered by name or display name and sorted by name or creation date (GraphQL
+<code>organizations</code> with <code>orderBy</code> and <code>descending</code>).</li>
 <li><strong>Teams</strong> (nested, with members) are used for <a href="/docs/features/#code-ownership">code ownership</a>.
 They can be synced hourly from GitLab groups with <code>own.syncTeamsFromGitLabGroups</code>.</li>
 </ul>
+<p>An organization's and a team's members list 50 at a time, filtered by username or display name.</p>
 <h2 id="access-tokens"><a class="anchor" href="#access-tokens" aria-hidden="true">#</a>Access tokens</h2>
 <p>Personal access tokens authenticate API clients, <code>gull</code>, CI uploads and <a href="/docs/mcp/">MCP</a> clients.
 Create them under <strong>User settings → Access tokens</strong> (or inline on the Connect an agent page).</p>
@@ -415,6 +420,12 @@ token act as any user with <code>Authorization: token-sudo user=&quot;&lt;userna
 their maximum lifetime (<code>maxTokenExpiresInDays</code>, default 365).</li>
 <li>Tokens are stored hashed; a token is shown once, when it is created.</li>
 </ul>
+<p><strong>Site admin → Access tokens</strong> lists every user's tokens, 50 at a time, with their prefix
+(<code>skp_</code> and the first 8 characters, enough to tell tokens apart), note, scopes and dates; it
+sorts by user, created, last used or expiry, filters by username or note, and revokes tokens.
+The counts at the top are for the whole site; <strong>expired</strong> and <strong>unused 90+ days</strong> (unexpired
+tokens not used in 90 days, or never used since they were created that long ago) narrow the list
+to those tokens. The GraphQL fields are <code>accessTokens</code> and <code>accessTokenCounts</code>.</p>
 <p>MCP clients can also sign in through the browser instead of using a pasted token; the tokens
 they get work only at the MCP endpoint and are listed under <strong>User settings → Connected apps</strong>
 (<a href="/docs/mcp/#oauth-sign-in">OAuth sign-in</a>).</p>
@@ -429,8 +440,8 @@ verified here. The GraphQL mutation is <code>createUser</code>.</p>
 <h2 id="access-requests"><a class="anchor" href="#access-requests" aria-hidden="true">#</a>Access requests</h2>
 <p>When built-in sign-up is off, the sign-in page lets visitors request an account (turn this off
 with <code>&quot;auth.accessRequest&quot;: { &quot;enabled&quot;: false }</code>). Site admins review requests under <strong>Site
-admin → Access requests</strong>; approving one creates the user and returns a one-time account setup
-link, which is also emailed when SMTP is configured.</p>
+admin → Access requests</strong>, 50 at a time, oldest first; approving one creates the user and returns
+a one-time account setup link, which is also emailed when SMTP is configured.</p>
 <h2 id="accounts"><a class="anchor" href="#accounts" aria-hidden="true">#</a>Accounts</h2>
 <p>Users manage their own account under <strong>User settings</strong>:</p>
 <ul>
@@ -447,6 +458,10 @@ Users</strong>. Deactivation ends the user's sessions, revokes their access toke
 and blocks sign-in; it frees the username. <strong>Show deactivated users</strong> lists them with a
 <strong>Reactivate</strong> action, which restores the account (access tokens stay revoked) unless another
 user has taken the username meanwhile. Site admins cannot deactivate themselves.</p>
+<p>The page lists users 50 at a time and sorts by any column. The counts at the top (users, site
+admins, deactivated users) are for the whole site; <strong>site admins</strong> and <strong>deactivated</strong> narrow the
+list to those users, and <strong>users</strong> clears every filter. The GraphQL fields are <code>users</code> (with
+<code>siteAdmin</code>, <code>deactivated</code>, <code>orderBy</code> and <code>descending</code>) and <code>userCounts</code>.</p>
 <p>The username, emails and active state of <a href="#scim-provisioning">SCIM</a>-managed users change only
 through the identity provider.</p>
 <p>The GraphQL mutations are <code>updateUser</code>, <code>updatePassword</code>, <code>addUserEmail</code>, <code>removeUserEmail</code>,
