@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.9.0</b></p>
+      <p class="version">Version <b>v0.10.0</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/" aria-current="page">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -440,6 +440,12 @@ others are not shown.</li>
 without HTML. A dismissible notice stays dismissed in that browser until its message changes.</li>
 <li><code>orgs.allMembersBatchChangesAdmin</code>, in an organization's settings: every member may close and
 delete the organization's bulk changes.</li>
+<li><code>display.dateFormat</code> (default <code>locale</code>): how dates and times are shown. <code>locale</code> formats them
+for <code>display.locale</code>; <code>iso</code> shows ISO 8601 (<code>2026-10-30 14:05</code>) whatever the locale.</li>
+<li><code>display.locale</code>: the locale for dates, times and numbers, as a language tag such as <code>en-GB</code> or
+<code>de-DE</code>. Unset, each browser formats them for its own language (in Firefox, Settings → Language
+can make that follow the operating system's regional format). A tag the browser doesn't know
+counts as unset.</li>
 </ul>
 <p>Other keys are kept and passed through to the UI. <code>search.includeForks</code> is accepted but has no
 effect yet: use <code>fork:yes</code> in the query.</p>
