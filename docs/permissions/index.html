@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.10.0</b></p>
+      <p class="version">Version <b>v0.11.0</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/" aria-current="page">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -313,7 +313,9 @@ and per repository (who can read this project?), and again on GitLab membership 
 events. Public projects are readable by everyone; <code>markInternalReposAsPublic</code> treats internal
 projects the same way. Site admins can see each user's and repository's permissions and sync
 history, and trigger a sync, under Site admin → Repository permissions and on the user and
-repository pages. The <code>permissions.sync*</code> keys tune the schedule.</p>
+repository pages. By default, the scheduler waits at least 30 minutes after a sync before
+queuing another for the same user or repository. The site settings
+<code>permissions.syncUsersBackoffSeconds</code> and <code>permissions.syncReposBackoffSeconds</code> control those waits.</p>
 <p>Every sign-in queues a sync of that user ahead of other syncs. Until it finishes, a user who
 signs in for the first time sees only the repositories everyone can read, so Sourcegull shows a
 banner on every page while it runs (&quot;Syncing your repository permissions from your code host&quot;),

@@ -28,7 +28,7 @@
   </header>
   <div class="docs-layout">
     <aside class="sidebar">
-      <p class="version">Version <b>v0.10.0</b></p>
+      <p class="version">Version <b>v0.11.0</b></p>
       <div class="navgroup"><p>Get started</p><ul><li><a href="/docs/">Overview</a></li><li><a href="/docs/install/">Install</a></li><li><a href="/docs/configuration/">Configuration</a></li><li><a href="/docs/permissions/">Permissions and sign-in</a></li></ul></div><div class="navgroup"><p>Use</p><ul><li><a href="/docs/search/">Search</a></li><li><a href="/docs/code-navigation/">Code navigation</a></li><li><a href="/docs/mcp/" aria-current="page">AI agents (MCP)</a></li><li><a href="/docs/bulk-changes/">Bulk changes</a></li><li><a href="/docs/features/">Other features</a></li></ul></div><div class="navgroup"><p>Operate</p><ul><li><a href="/docs/upgrade-compose/">Upgrade (Docker Compose)</a></li><li><a href="/docs/helm/">Helm chart</a></li><li><a href="/docs/helm-sizing/">Sizing</a></li><li><a href="/docs/observability/">Monitoring</a></li><li><a href="/docs/observability/dashboards/">Dashboards</a></li><li><a href="/docs/observability/alerts/">Alerts</a></li></ul></div><div class="navgroup"><p>Contribute</p><ul><li><a href="/docs/architecture/">Architecture</a></li><li><a href="/docs/development/">Development</a></li><li><a href="/docs/roadmap/">Roadmap</a></li></ul></div>
     </aside>
     <main class="doc">
@@ -218,10 +218,8 @@ Continue and stdio-only clients. With OAuth sign-in on, it first asks how the ag
 and shows only the steps for that choice:</p>
 <ul>
 <li>
-<p><strong>Through the browser</strong> (the default): the short form for clients that support MCP OAuth,
-for example</p>
-<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>claude<span class="w"> </span>mcp<span class="w"> </span>add<span class="w"> </span>--transport<span class="w"> </span>http<span class="w"> </span>sourcegull<span class="w"> </span>https://sourcegull.example.com/.api/mcp
-</code></pre></div>
+<p><strong>Through the browser</strong> (the default): setup for clients that support MCP OAuth.
+For Codex, copy the command under <strong>Codex CLI</strong> or follow the steps below.</p>
 </li>
 <li>
 <p><strong>With an access token</strong>: the endpoint URL, a button that creates a token and fills it into
@@ -230,6 +228,23 @@ every snippet, the per-agent setup and a <code>curl</code> test.</p>
 </ul>
 <p>Without OAuth sign-in only the access token steps are shown. Both choices end with rules for
 the agent's instructions file, example prompts and the tool list.</p>
+<h3 id="codex-with-browser-sign-in"><a class="anchor" href="#codex-with-browser-sign-in" aria-hidden="true">#</a>Codex with browser sign-in</h3>
+<p>Use a current Codex CLI and replace the example host with your Sourcegull instance.
+Connect to your organization's VPN first if the instance is on a private network.</p>
+<div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code>codex<span class="w"> </span>mcp<span class="w"> </span>add<span class="w"> </span>sourcegull<span class="w"> </span>--url<span class="w"> </span>https://sourcegull.example.com/.api/mcp<span class="w"> </span>--oauth-client-registration<span class="w"> </span>dcr
+</code></pre></div>
+<p>Complete sign-in and consent in the browser. This command uses <a href="#oauth-sign-in">Dynamic Client Registration</a>
+when adding the server. If the server is already registered and you still need to sign in, run
+<code>codex mcp login sourcegull --oauth-client-registration dcr</code>. The browser setup for Codex
+appears in the wizard when the instance enables <code>mcp.oauth.dynamicClientRegistration</code>.</p>
+<p>Start a new Codex session and run <code>/mcp</code> in the CLI to check that Sourcegull is connected and
+its tools are listed. The Codex desktop app also uses the Codex MCP configuration.</p>
+<p>If you previously set up access-token authentication, remove <code>bearer_token_env_var</code> from
+<code>[mcp_servers.sourcegull]</code> in <code>~/.codex/config.toml</code> before switching to OAuth. A startup error
+that says <code>SOURCEGULL_TOKEN</code> is not set indicates Codex is still configured for bearer-token
+authentication. For that mode, the variable must be in the environment of the process that
+starts Codex.</p>
+<h3 id="access-token-setup"><a class="anchor" href="#access-token-setup" aria-hidden="true">#</a>Access-token setup</h3>
 <p>Examples with an access token in <code>SOURCEGULL_TOKEN</code>:</p>
 <div class="codeblock"><div class="codebar"><span>sh</span><button class="copy" type="button" aria-label="Copy">Copy</button></div><pre class="hl"><code><span class="c1"># Claude Code</span>
 claude<span class="w"> </span>mcp<span class="w"> </span>add<span class="w"> </span>--transport<span class="w"> </span>http<span class="w"> </span>--scope<span class="w"> </span>user<span class="w"> </span>sourcegull<span class="w"> </span>https://sourcegull.example.com/.api/mcp<span class="w"> </span><span class="se">\</span>
@@ -275,7 +290,7 @@ team.&quot;</li>
       <nav class="pager" aria-label="Pages"><a class="prev" href="/docs/code-navigation/"><span>Previous</span><b>Code navigation</b></a><a class="next" href="/docs/bulk-changes/"><span>Next</span><b>Bulk changes</b></a></nav>
     </main>
     <aside class="toc">
-      <p>On this page</p><ul><li class="l2"><a href="#tools">Tools</a></li><li class="l2"><a href="#token-usage">Token usage</a></li><li class="l2"><a href="#authentication">Authentication</a></li><li class="l2"><a href="#oauth-sign-in">OAuth sign-in</a></li><li class="l2"><a href="#connecting-an-agent">Connecting an agent</a></li><li class="l2"><a href="#checking-the-endpoint">Checking the endpoint</a></li><li class="l2"><a href="#example-prompts">Example prompts</a></li></ul>
+      <p>On this page</p><ul><li class="l2"><a href="#tools">Tools</a></li><li class="l2"><a href="#token-usage">Token usage</a></li><li class="l2"><a href="#authentication">Authentication</a></li><li class="l2"><a href="#oauth-sign-in">OAuth sign-in</a></li><li class="l2"><a href="#connecting-an-agent">Connecting an agent</a></li><li class="l3"><a href="#codex-with-browser-sign-in">Codex with browser sign-in</a></li><li class="l3"><a href="#access-token-setup">Access-token setup</a></li><li class="l2"><a href="#checking-the-endpoint">Checking the endpoint</a></li><li class="l2"><a href="#example-prompts">Example prompts</a></li></ul>
     </aside>
   </div>
   <script src="/assets/docs.js" defer></script>
